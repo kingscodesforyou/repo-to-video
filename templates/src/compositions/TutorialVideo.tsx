@@ -64,7 +64,7 @@ export interface SceneData {
   data?: any;
 }
 
-export interface TutorialVideoProps {
+export type TutorialVideoProps = {
   schemaVersion?: string;
   title: string;
   repoName: string;
@@ -74,7 +74,7 @@ export interface TutorialVideoProps {
   globalArtDirection?: GlobalArtDirection;
   debugMode?: boolean;
   scenes: SceneData[];
-}
+};
 
 const SceneBackgroundWrapper: React.FC<{
   scene: SceneData;

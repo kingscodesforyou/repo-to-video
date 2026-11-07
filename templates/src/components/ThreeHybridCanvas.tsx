@@ -78,12 +78,20 @@ export const MorphingPolyhedron3D: React.FC<{
   accentColor: string;
   isLight?: boolean;
   facetsCount?: number;
+  rotation?: number; // kinematic rotateZ in degrees, added to ambient spin
+  shape?: string;
+  objectId?: string;
+  action?: string;
 }> = ({
   width = 300,
   height = 260,
   morphProgress,
   accentColor,
   isLight = false,
+  rotation = 0,
+  shape,
+  objectId,
+  action,
 }) => {
   const f = useCurrentFrame();
   const phi = (1 + Math.sqrt(5)) / 2;
@@ -134,7 +142,7 @@ export const MorphingPolyhedron3D: React.FC<{
 
   const rx = f * 0.018 + 0.35;
   const ry = f * 0.026 - 0.4;
-  const rz = f * 0.009;
+  const rz = f * 0.009 + (rotation * Math.PI) / 180;
   const lightDir = normalizeVec3({ x: -0.45, y: -0.65, z: -0.6 });
 
   const cx = width / 2;
@@ -188,7 +196,8 @@ export const MorphingPolyhedron3D: React.FC<{
   renderedFaces.sort((a, b) => b.avgDepth - a.avgDepth);
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}
+      data-motion-object={objectId} data-motion-action={action} data-motion-shape={shape}>
       <defs>
         <radialGradient id="crystalCoreGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor={accentColor} stopOpacity={0.38 * morphProgress} />
@@ -227,7 +236,10 @@ export const MechanicalRotor3D: React.FC<{
   accentColor: string;
   separateProgress: number;
   rpm?: number;
-}> = ({ width = 380, height = 220, accentColor, separateProgress, rpm = 1.0 }) => {
+  rotation?: number; // kinematic rotateZ in degrees, added to ring spin
+  objectId?: string;
+  action?: string;
+}> = ({ width = 380, height = 220, accentColor, separateProgress, rpm = 1.0, rotation = 0, objectId, action }) => {
   const f = useCurrentFrame();
   const cx = width / 2;
   const cy = height / 2;
@@ -252,7 +264,7 @@ export const MechanicalRotor3D: React.FC<{
         y: Math.cos(theta) * ring.r,
         z: Math.sin(theta) * ring.r,
       };
-      const vRot = rotateVec3(vLocal, ring.tiltX * 0.3, 0.32, 0);
+      const vRot = rotateVec3(vLocal, ring.tiltX * 0.3, 0.32, (rotation * Math.PI) / 180);
       const proj = projectVec3(vRot, cx, cy, 480, 400);
       pts.push(proj);
     }
@@ -292,7 +304,8 @@ export const MechanicalRotor3D: React.FC<{
   elements.sort((a, b) => b.depth - a.depth);
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}
+      data-motion-object={objectId} data-motion-action={action}>
       {/* 中心光学轴线 */}
       <line
         x1={cx - 135}

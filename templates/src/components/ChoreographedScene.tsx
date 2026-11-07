@@ -22,6 +22,7 @@ import {
   resolveSceneRenderer,
 } from "../registry/RendererRegistry";
 import registryManifest from "../registry/registry_manifest.json";
+import { assertAnimationScene } from "../registry/AnimationContract";
 
 export type { ChoreographyBeat, VisualWorldSpec };
 
@@ -336,6 +337,7 @@ export const ChoreographedScene: React.FC<{
   scene: SceneV4Props;
   globalArtDirection?: GlobalArtDirection;
 }> = ({ scene, globalArtDirection }) => {
+  assertAnimationScene(scene);
   const f = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const duration = scene.durationInFrames || durationInFrames || 120;

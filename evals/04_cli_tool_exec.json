@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.2",
+  "schema_version": "4.3",
   "repo_name": "cli-tool-exec-benchmark",
   "repo_type": "RUNNABLE",
   "video_title": "Benchmark 04: CLI 工具执行与真实代码视口联动",

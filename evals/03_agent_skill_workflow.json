@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.2",
+  "schema_version": "4.3",
   "repo_name": "agent-skill-router-benchmark",
   "repo_type": "SKILL",
   "video_title": "Benchmark 03: Agent / Skill 多工具调度与融合工作流",

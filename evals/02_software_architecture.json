@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.2",
+  "schema_version": "4.3",
   "repo_name": "hybrid-storage-benchmark",
   "repo_type": "RUNNABLE",
   "video_title": "Benchmark 02: 多层软件架构空间拆解与合体",

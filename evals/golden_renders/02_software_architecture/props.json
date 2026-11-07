@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "4.3",
+  "title": "Benchmark 02: 多层软件架构空间拆解与合体",
+  "repoName": "hybrid-storage-benchmark",
+  "repoUrl": "",
+  "repoType": "RUNNABLE",
+  "heroSceneId": "eval_arch_01",
+  "chapters": [
+    "多层软件架构拆解"
+  ],
+  "globalArtDirection": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "dramatic_rim",
+    "camera_philosophy": "continuous_narrative_flow",
+    "max_element_budget": 4
+  },
+  "fps": 30,
+  "totalFrames": 120,
+  "scenes": [
+    {
+      "id": "eval_arch_01",
+      "renderer_id": "architecture_v1",
+      "chapter": "多层软件架构拆解",
+      "title": "三层异构存储模组 Z 轴拆解",
+      "continuity_group": "arch_chamber_benchmark",
+      "narration": "为了兼顾检索精度与审计追溯，架构沿纵深拆解为三层模组，底层负责记录不可篡改流水账，随后三层高速咬合协同响应。",
+      "visual_intent": "展示三层架构沿 Z 轴爆炸展开、底层聚焦扫描与精密合体",
+      "art_direction": {
+        "style": "mechanism_3d",
+        "lighting": "dramatic_rim",
+        "material": "brushed_aluminum",
+        "accent_color": "#34D399",
+        "element_budget": 4
+      },
+      "visual_world": {
+        "environment": "dark_architectural_stage",
+        "primary_object": "layered_architecture",
+        "secondary_objects": [
+          "graph_topology_slab",
+          "vector_index_slab",
+          "sqlite_ledger_slab"
+        ]
+      },
+      "visual_choreography": [
+        {
+          "beat": "Z轴爆炸拆解",
+          "phrase_anchor": "架构沿纵深拆解为三层模组",
+          "action": "explode_layers",
+          "target": "layered_architecture",
+          "description": "三层金属存储基板沿 Z 轴平稳拉开间距",
+          "camera": "isometric_tilt",
+          "shot_scale": "wide",
+          "yielding": [
+            {
+              "target": "background_grid",
+              "opacity": 0.18
+            }
+          ],
+          "payload": {
+            "explode_distance": 40
+          }
+        },
+        {
+          "beat": "底层流水扫描",
+          "phrase_anchor": "底层负责记录不可篡改流水账",
+          "action": "scan_layer",
+          "target": "sqlite_ledger_slab",
+          "description": "镜头下移聚焦 L1 SQLite 审计层，上两层自动降暗虚化让位",
+          "camera": "track_vertical",
+          "shot_scale": "medium",
+          "yielding": [
+            {
+              "target": "graph_topology_slab",
+              "opacity": 0.25,
+              "scale": 0.92,
+              "zOffset": -45,
+              "blur": 2.0
+            },
+            {
+              "target": "vector_index_slab",
+              "opacity": 0.28,
+              "scale": 0.94,
+              "zOffset": -35,
+              "blur": 1.5
+            }
+          ],
+          "payload": {
+            "focus_layer": 2
+          }
+        },
+        {
+          "beat": "三层回弹合体",
+          "phrase_anchor": "随后三层高速咬合协同响应",
+          "action": "assemble",
+          "target": "layered_architecture",
+          "description": "三层模组回弹咬合，右侧聚合晶体同步点亮",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "yielding": [
+            {
+              "target": "background_grid",
+              "opacity": 0.14
+            }
+          ]
+        }
+      ],
+      "text_overlays": [
+        {
+          "text": "L1-L3 异构协同",
+          "role": "annotation",
+          "beat_index": 2
+        }
+      ],
+      "type": "choreographed_v4",
+      "durationInFrames": 120,
+      "durationSec": 4.0,
+      "audioFrames": 120,
+      "startFrame": 0,
+      "start_frame": 0,
+      "endFrame": 119,
+      "end_frame": 119,
+      "beat_timings": [
+        {
+          "beat_index": 0,
+          "beat": "Z轴爆炸拆解",
+          "action": "explode_layers",
+          "target": "layered_architecture",
+          "phrase_anchor": "架构沿纵深拆解为三层模组",
+          "camera": "isometric_tilt",
+          "shot_scale": "wide",
+          "start_frame": 0,
+          "startFrame": 0,
+          "end_frame": 39,
+          "endFrame": 39,
+          "mid_frame": 20
+        },
+        {
+          "beat_index": 1,
+          "beat": "底层流水扫描",
+          "action": "scan_layer",
+          "target": "sqlite_ledger_slab",
+          "phrase_anchor": "底层负责记录不可篡改流水账",
+          "camera": "track_vertical",
+          "shot_scale": "medium",
+          "start_frame": 40,
+          "startFrame": 40,
+          "end_frame": 79,
+          "endFrame": 79,
+          "mid_frame": 60
+        },
+        {
+          "beat_index": 2,
+          "beat": "三层回弹合体",
+          "action": "assemble",
+          "target": "layered_architecture",
+          "phrase_anchor": "随后三层高速咬合协同响应",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "start_frame": 80,
+          "startFrame": 80,
+          "end_frame": 119,
+          "endFrame": 119,
+          "mid_frame": 100
+        }
+      ],
+      "phrase_timings": [],
+      "word_timings": []
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Executable animation input contract",
+  "type": "object",
+  "required": ["id", "renderer_id", "visual_world", "visual_choreography"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"},
+    "renderer_id": {"$ref": "#/$defs/nonempty"},
+    "visual_world": {
+      "type": "object",
+      "required": ["environment", "primary_object", "secondary_objects"],
+      "properties": {
+        "environment": {"$ref": "#/$defs/nonempty"},
+        "primary_object": {"$ref": "#/$defs/object_ref"},
+        "secondary_objects": {"type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/object_ref"}},
+        "object_labels": {"type": "object", "additionalProperties": {"$ref": "#/$defs/nonempty"}},
+        "authentic_assets": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "visual_choreography": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["beat", "phrase_anchor", "action", "target", "description", "camera"],
+        "properties": {
+          "beat": {"$ref": "#/$defs/nonempty"},
+          "phrase_anchor": {"$ref": "#/$defs/nonempty"},
+          "action": {"$ref": "#/$defs/nonempty"},
+          "target": {"$ref": "#/$defs/nonempty"},
+          "description": {"$ref": "#/$defs/nonempty"},
+          "camera": {"$ref": "#/$defs/nonempty"},
+          "camera_config": {
+            "type": "object",
+            "properties": {
+              "speed": {"anyOf": [{"enum": ["slow", "normal", "fast"]}, {"type": "number", "minimum": 0.1, "maximum": 4}]},
+              "easing": {"enum": ["cubic_in_out", "cubic_out", "linear"]},
+              "lookAt": {"$ref": "#/$defs/nonempty"}
+            },
+            "additionalProperties": false
+          },
+          "shot_scale": {"enum": ["wide", "medium", "close_up", "macro"]},
+          "yielding": {"type": "array", "items": {"$ref": "#/$defs/yielding_rule"}},
+          "payload": {"type": "object"},
+          "start_frame": {"$ref": "#/$defs/frame"},
+          "end_frame": {"$ref": "#/$defs/frame"},
+          "startFrame": {"$ref": "#/$defs/frame"},
+          "endFrame": {"$ref": "#/$defs/frame"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "nonempty": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "frame": {"type": "integer", "minimum": 0},
+    "particle_payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "particle_count": {"$ref": "#/$defs/particle_count"}, "valid_ratio": {"$ref": "#/$defs/valid_ratio"},
+        "flow_speed": {"$ref": "#/$defs/flow_speed"}, "split_angle": {"$ref": "#/$defs/split_angle"},
+        "crystal_facets": {"$ref": "#/$defs/crystal_facets"}, "gravity": {"$ref": "#/$defs/gravity"},
+        "token_labels": {"$ref": "#/$defs/token_labels"}, "direction": {"$ref": "#/$defs/direction"},
+        "separation_axis": {"$ref": "#/$defs/separation_axis"}, "separation_distance": {"$ref": "#/$defs/separation_distance"},
+        "target_state": {"$ref": "#/$defs/target_state"}, "morph_duration": {"$ref": "#/$defs/morph_duration"}, "easing": {"$ref": "#/$defs/easing"}
+      }
+    },
+    "mechanical_payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "explode_distance": {"$ref": "#/$defs/explode_distance"}, "focus_layer": {"$ref": "#/$defs/focus_layer"},
+        "rotor_rpm": {"$ref": "#/$defs/rotor_rpm"}, "scan_progress": {"$ref": "#/$defs/scan_progress"},
+        "layer_specs": {"$ref": "#/$defs/layer_specs"}, "easing": {"$ref": "#/$defs/easing"}
+      }
+    },
+    "dataflow_payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "probe_count": {"$ref": "#/$defs/probe_count"}, "weights": {"$ref": "#/$defs/weights"},
+        "active_channels": {"$ref": "#/$defs/active_channels"}, "confidence_target": {"$ref": "#/$defs/confidence_target"},
+        "node_connections": {"$ref": "#/$defs/node_connections"}, "pulse_speed": {"$ref": "#/$defs/pulse_speed"},
+        "endpoint_label": {"$ref": "#/$defs/endpoint_label"}, "status_code": {"$ref": "#/$defs/status_code"},
+        "direction": {"$ref": "#/$defs/direction"}, "easing": {"$ref": "#/$defs/easing"}
+      }
+    },
+    "timeline_payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "overload_tokens": {"$ref": "#/$defs/overload_tokens"}, "precision_tokens": {"$ref": "#/$defs/precision_tokens"},
+        "timestamps": {"$ref": "#/$defs/timestamps"}, "active_node_index": {"$ref": "#/$defs/active_node_index"},
+        "strain_level": {"$ref": "#/$defs/strain_level"}, "easing": {"$ref": "#/$defs/easing"}
+      }
+    },
+    "interface_payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "lines": {"$ref": "#/$defs/lines"}, "command_index": {"$ref": "#/$defs/command_index"},
+        "zoom_region": {"$ref": "#/$defs/zoom_region"}, "split_ratio": {"$ref": "#/$defs/split_ratio"},
+        "cursor_pos": {"$ref": "#/$defs/cursor_pos"}, "easing": {"$ref": "#/$defs/easing"}
+      }
+    },
+    "typography_payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "headline": {"$ref": "#/$defs/headline"}, "subheadline": {"$ref": "#/$defs/subheadline"},
+        "metric_value": {"$ref": "#/$defs/metric_value"}, "metric_unit": {"$ref": "#/$defs/metric_unit"},
+        "axiom_number": {"$ref": "#/$defs/axiom_number"}, "easing": {"$ref": "#/$defs/easing"}
+      }
+    },
+    "bus_payload": {"anyOf": [{"$ref": "#/$defs/mechanical_payload"}, {"$ref": "#/$defs/dataflow_payload"}]},
+    "dispatch_payload": {"anyOf": [{"$ref": "#/$defs/timeline_payload"}, {"$ref": "#/$defs/dataflow_payload"}]},
+    "object_ref": {
+      "anyOf": [
+        {"$ref": "#/$defs/nonempty"},
+        {
+          "type": "object",
+          "properties": {
+            "id": {"$ref": "#/$defs/nonempty"},
+            "type": {"$ref": "#/$defs/nonempty"},
+            "label": {"$ref": "#/$defs/nonempty"},
+            "material": {"$ref": "#/$defs/nonempty"}
+          },
+          "anyOf": [{"required": ["id"]}, {"required": ["type"]}],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "yielding_rule": {
+      "type": "object", "required": ["target"],
+      "properties": {
+        "target": {"$ref": "#/$defs/nonempty"},
+        "opacity": {"type": "number", "minimum": 0, "maximum": 1},
+        "scale": {"type": "number", "minimum": 0.1, "maximum": 3},
+        "zOffset": {"type": "number", "minimum": -2000, "maximum": 2000},
+        "blur": {"type": "number", "minimum": 0, "maximum": 32}
+      },
+      "additionalProperties": false
+    },
+    "particle_count": {"type": "integer", "minimum": 1, "maximum": 128},
+    "valid_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+    "flow_speed": {"type": "number", "exclusiveMinimum": 0, "maximum": 4},
+    "split_angle": {"type": "number", "minimum": 0, "maximum": 90},
+    "crystal_facets": {"type": "integer", "minimum": 4, "maximum": 64},
+    "gravity": {"type": "number", "minimum": 0, "maximum": 4},
+    "token_labels": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/nonempty"}},
+    "direction": {"enum": ["right", "left", "up", "down"]},
+    "separation_axis": {"enum": ["x", "y", "z"]},
+    "separation_distance": {"type": "number", "exclusiveMinimum": 0, "maximum": 500},
+    "target_state": {"$ref": "#/$defs/nonempty"},
+    "morph_duration": {"type": "number", "exclusiveMinimum": 0, "maximum": 60},
+    "easing": {"enum": ["linear", "cubic_out"]},
+    "explode_distance": {"type": "number", "exclusiveMinimum": 0, "maximum": 200},
+    "focus_layer": {"type": "integer", "minimum": 0, "maximum": 2},
+    "rotor_rpm": {"type": "number", "minimum": -120, "maximum": 120},
+    "scan_progress": {"type": "number", "minimum": 0, "maximum": 1},
+    "layer_specs": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "object", "required": ["label"], "properties": {"label": {"$ref": "#/$defs/nonempty"}}, "additionalProperties": false}},
+    "probe_count": {"type": "integer", "minimum": 1, "maximum": 4},
+    "weights": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"type": "number", "minimum": 0, "maximum": 100}},
+    "active_channels": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 3}},
+    "confidence_target": {"type": "number", "minimum": 0, "maximum": 100},
+    "node_connections": {"type": "array", "maxItems": 16, "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0, "maximum": 15}}},
+    "pulse_speed": {"type": "number", "exclusiveMinimum": 0, "maximum": 4},
+    "endpoint_label": {"$ref": "#/$defs/nonempty"},
+    "status_code": {"type": "integer", "minimum": 100, "maximum": 599},
+    "overload_tokens": {"type": "integer", "minimum": 1, "maximum": 1000000},
+    "precision_tokens": {"type": "integer", "minimum": 1, "maximum": 1000000},
+    "timestamps": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"$ref": "#/$defs/nonempty"}},
+    "active_node_index": {"type": "integer", "minimum": 0, "maximum": 3},
+    "strain_level": {"type": "number", "minimum": 0, "maximum": 1},
+    "lines": {"type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": true, "items": {"type": "integer", "minimum": 1, "maximum": 10000}},
+    "command_index": {"type": "integer", "minimum": 0, "maximum": 99},
+    "zoom_region": {"type": "object", "required": ["x", "y", "width", "height"], "properties": {"x": {"type": "number", "minimum": 0, "maximum": 1920}, "y": {"type": "number", "minimum": 0, "maximum": 1080}, "width": {"type": "number", "exclusiveMinimum": 0, "maximum": 1920}, "height": {"type": "number", "exclusiveMinimum": 0, "maximum": 1080}}, "additionalProperties": false},
+    "split_ratio": {"type": "number", "minimum": 0.2, "maximum": 0.8},
+    "cursor_pos": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0, "maximum": 1}},
+    "headline": {"$ref": "#/$defs/nonempty"},
+    "subheadline": {"$ref": "#/$defs/nonempty"},
+    "metric_value": {"type": "number", "minimum": -1000000000, "maximum": 1000000000},
+    "metric_unit": {"type": "string", "maxLength": 32},
+    "axiom_number": {"type": "integer", "minimum": 1, "maximum": 99}
+  }
+}

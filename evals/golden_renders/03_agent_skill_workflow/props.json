@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "4.3",
+  "title": "Benchmark 03: Agent / Skill 多工具调度与融合工作流",
+  "repoName": "agent-skill-router-benchmark",
+  "repoUrl": "",
+  "repoType": "SKILL",
+  "heroSceneId": "eval_agent_01",
+  "chapters": [
+    "Agent Skill 调度工作流"
+  ],
+  "globalArtDirection": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "soft_studio",
+    "camera_philosophy": "continuous_narrative_flow",
+    "max_element_budget": 4
+  },
+  "fps": 30,
+  "totalFrames": 120,
+  "scenes": [
+    {
+      "id": "eval_agent_01",
+      "renderer_id": "dataflow_router_v1",
+      "chapter": "Agent Skill 调度工作流",
+      "title": "Agent 核心分发与多 Skill 并发汇聚",
+      "continuity_group": "agent_workflow_benchmark",
+      "narration": "当接收到复杂开发任务，Agent 调度中枢先向三个专业 Skill 槽位下发指令，并行执行检索与代码分析，最终汇聚成高置信度决策。",
+      "visual_intent": "展示 Agent 调度中枢分发工具指令、多通道并行执行与三维拓扑汇聚",
+      "art_direction": {
+        "style": "spatial_25d",
+        "lighting": "soft_studio",
+        "material": "translucent_glass",
+        "accent_color": "#38BDF8",
+        "element_budget": 4
+      },
+      "visual_world": {
+        "environment": "spatial_network_void",
+        "primary_object": "agent_dispatcher_core",
+        "secondary_objects": [
+          "skill_tool_slot",
+          "vector_probe",
+          "converged_answer_crystal"
+        ]
+      },
+      "visual_choreography": [
+        {
+          "beat": "Skill指令分发",
+          "phrase_anchor": "Agent 调度中枢先向三个专业 Skill 槽位下发指令",
+          "action": "dispatch_tool",
+          "target": "skill_tool_slot",
+          "description": "调度中枢向左侧三个工具通道发射脉冲指令",
+          "camera": "orbit_left",
+          "shot_scale": "wide",
+          "yielding": [
+            {
+              "target": "agent_dispatcher_core",
+              "opacity": 0.4,
+              "scale": 0.95,
+              "zOffset": -30,
+              "blur": 1.0
+            }
+          ],
+          "payload": {
+            "probe_count": 3,
+            "weights": [
+              96,
+              92,
+              95
+            ]
+          }
+        },
+        {
+          "beat": "多通道并行执行",
+          "phrase_anchor": "并行执行检索与代码分析",
+          "action": "route_parallel",
+          "target": "vector_probe",
+          "description": "多条工具通道同步回传实时信号并注入三维拓扑网",
+          "camera": "track_horizontal",
+          "shot_scale": "medium",
+          "yielding": [
+            {
+              "target": "background_grid",
+              "opacity": 0.16
+            }
+          ],
+          "payload": {
+            "weights": [
+              96,
+              92,
+              95
+            ]
+          }
+        },
+        {
+          "beat": "高置信度汇聚",
+          "phrase_anchor": "最终汇聚成高置信度决策",
+          "action": "converge_result",
+          "target": "agent_dispatcher_core",
+          "description": "右侧三维拓扑网络节点向中心棱镜收缩聚拢",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "yielding": [
+            {
+              "target": "skill_tool_slot",
+              "opacity": 0.25,
+              "scale": 0.9,
+              "zOffset": -50,
+              "blur": 2.5
+            },
+            {
+              "target": "vector_probe",
+              "opacity": 0.25,
+              "scale": 0.9,
+              "zOffset": -50,
+              "blur": 2.5
+            }
+          ],
+          "payload": {
+            "confidence_target": 99.1
+          }
+        }
+      ],
+      "text_overlays": [
+        {
+          "text": "3x Skill 并发调度",
+          "role": "callout",
+          "beat_index": 0
+        }
+      ],
+      "type": "choreographed_v4",
+      "durationInFrames": 120,
+      "durationSec": 4.0,
+      "audioFrames": 120,
+      "startFrame": 0,
+      "start_frame": 0,
+      "endFrame": 119,
+      "end_frame": 119,
+      "beat_timings": [
+        {
+          "beat_index": 0,
+          "beat": "Skill指令分发",
+          "action": "dispatch_tool",
+          "target": "skill_tool_slot",
+          "phrase_anchor": "Agent 调度中枢先向三个专业 Skill 槽位下发指令",
+          "camera": "orbit_left",
+          "shot_scale": "wide",
+          "start_frame": 0,
+          "startFrame": 0,
+          "end_frame": 39,
+          "endFrame": 39,
+          "mid_frame": 20
+        },
+        {
+          "beat_index": 1,
+          "beat": "多通道并行执行",
+          "action": "route_parallel",
+          "target": "vector_probe",
+          "phrase_anchor": "并行执行检索与代码分析",
+          "camera": "track_horizontal",
+          "shot_scale": "medium",
+          "start_frame": 40,
+          "startFrame": 40,
+          "end_frame": 79,
+          "endFrame": 79,
+          "mid_frame": 60
+        },
+        {
+          "beat_index": 2,
+          "beat": "高置信度汇聚",
+          "action": "converge_result",
+          "target": "agent_dispatcher_core",
+          "phrase_anchor": "最终汇聚成高置信度决策",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "start_frame": 80,
+          "startFrame": 80,
+          "end_frame": 119,
+          "endFrame": 119,
+          "mid_frame": 100
+        }
+      ],
+      "phrase_timings": [],
+      "word_timings": []
+    }
+  ]
+}

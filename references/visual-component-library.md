@@ -1,6 +1,6 @@
-# 视觉组件素材库与三层可组合 Renderer Registry 规范 (`visual-component-library.md` · v4.2)
+# 视觉组件素材库与三层可组合 Renderer Registry 规范 (`visual-component-library.md` · v4.3)
 
-为了彻底解决视觉导演分镜与实际渲染代码之间的断层问题，`repo-to-video` v4.2 建立了以根目录 [`renderer-registry.json`](../renderer-registry.json) 为唯一数据源的**三层可组合动画系统（3-Tier Composable Animation Architecture）**。
+为了彻底解决视觉导演分镜与实际渲染代码之间的断层问题，`repo-to-video` v4.3 建立了以根目录 [`renderer-registry.json`](../renderer-registry.json) 为唯一数据源的**三层可组合动画系统（3-Tier Composable Animation Architecture）**。
 
 ---
 
@@ -10,7 +10,9 @@
 | --- | --- | --- | --- |
 | **Tier 1** | `SceneRenderer` | 空间舞台、环境网格、灯光、槽位布局与组件路由 | [`renderer-registry.json`](../renderer-registry.json) `renderers` + [`RendererRegistry.tsx`](../templates/src/registry/RendererRegistry.tsx) |
 | **Tier 2** | `ObjectRenderer` | 单个 3D / 2.5D 物理实体的三维坐标 `[x, y, z]`（供相机 `lookAt` 对焦）、材质与几何形态 | [`renderer-registry.json`](../renderer-registry.json) `object_renderers` + [`ThreeHybridCanvas.tsx`](../templates/src/components/ThreeHybridCanvas.tsx) |
-| **Tier 3** | `MotionPrimitive` | 可复用的原子运动学动作原语（`particles_flow`, `separate`, `transform`, `explode_layers`, `dispatch_tool`, `send_request`, `stream_response` 等） | [`renderer-registry.json`](../renderer-registry.json) `motion_primitives` + `MOTION_PRIMITIVE_REGISTRY` |
+| **Tier 3** | `MotionPrimitive` | **可执行**的原子运动学原语（`particles_flow`, `separate`, `transform`, `explode_layers`, `dispatch_tool`, `send_request`, `stream_response` 等）：显式 `IMPLEMENTATIONS` 映射、未知动作抛错、节拍内局部进度、跨节拍状态继承；每个原语有方向/距离/终态行为测试 | [`renderer-registry.json`](../renderer-registry.json) `motion_primitives` + [`MotionPrimitives.ts`](../templates/src/registry/MotionPrimitives.ts) `MOTION_PRIMITIVE_REGISTRY` + [`motion.test.ts`](../templates/tests/motion.test.ts) |
+
+> **v4.3 执行保障**：registry 与 schema 的根目录文件是唯一数据源，`templates/src/registry/` 下为其生成镜像；`sync_registry.py --check` 以字节相等强制无漂移（`REGISTRY_DRIFT` 阻断）。`MOTION_PRIMITIVE_REGISTRY` 的键集合必须与 registry `motion_primitives` 完全一致（parity 测试），声明缺 `required_payload`/`optional_payload`/`payload_schema` 或实现未注册均在构建期抛错，绝不静默降级。
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "registry_version": "4.2.0",
+  "registry_version": "4.3.0",
   "element_budget_policy": {
     "max_total_major_elements": 4,
     "max_primary_objects": 1,
@@ -77,94 +77,1136 @@
     "steady_hold"
   ],
   "object_renderers": {
-    "3d_filter_machine": { "slot": "center", "coords": [0, -15, 20], "category": "PhysicalMechanism" },
-    "information_particles": { "slot": "left", "coords": [-420, -10, 0], "category": "ParticleEmitter" },
-    "signal_particles": { "slot": "left", "coords": [-420, -10, 0], "category": "ParticleEmitter" },
-    "waste_container": { "slot": "bottom", "coords": [-20, 210, -20], "category": "Container" },
-    "purified_object": { "slot": "right", "coords": [450, -15, 45], "category": "CrystalEntity" },
-    "morphing_crystal": { "slot": "right", "coords": [450, -15, 45], "category": "CrystalEntity" },
-    "layered_architecture": { "slot": "left_wide", "coords": [-180, 0, 15], "category": "StructuralStack" },
-    "mechanical_core": { "slot": "center", "coords": [0, 0, 25], "category": "StructuralStack" },
-    "rotor_ring_assembly": { "slot": "center", "coords": [0, 0, 25], "category": "PhysicalMechanism" },
-    "sqlite_ledger_slab": { "slot": "layer_0", "coords": [-180, 130, 0], "category": "ArchitectureSlab" },
-    "vector_index_slab": { "slot": "layer_1", "coords": [-180, 0, 15], "category": "ArchitectureSlab" },
-    "graph_topology_slab": { "slot": "layer_2", "coords": [-180, -130, 30], "category": "ArchitectureSlab" },
-    "converged_answer_crystal": { "slot": "right", "coords": [440, 0, 40], "category": "CrystalEntity" },
-    "multi_probe_router": { "slot": "right", "coords": [340, 0, 30], "category": "TopologyNetwork" },
-    "spatial_topology_graph": { "slot": "right", "coords": [340, 0, 30], "category": "TopologyNetwork" },
-    "optical_data_bus": { "slot": "center", "coords": [0, 0, 10], "category": "DataConduit" },
-    "vector_probe": { "slot": "left_0", "coords": [-360, -120, 0], "category": "SignalProbe" },
-    "lexical_probe": { "slot": "left_1", "coords": [-360, 0, 0], "category": "SignalProbe" },
-    "graph_probe": { "slot": "left_2", "coords": [-360, 120, 0], "category": "SignalProbe" },
-    "temporal_probe": { "slot": "left_3", "coords": [-360, 180, 0], "category": "SignalProbe" },
-    "network_nodes": { "slot": "right", "coords": [340, 0, 20], "category": "TopologyNetwork" },
-    "state_timeline_track": { "slot": "center", "coords": [0, 0, 0], "category": "TimelineRail" },
-    "historical_state_v1": { "slot": "left", "coords": [-440, 0, -15], "category": "StateBlock" },
-    "incremental_state_v2": { "slot": "center", "coords": [0, 0, 0], "category": "StateBlock" },
-    "timestamped_latest_state": { "slot": "right", "coords": [440, 0, 30], "category": "StateBlock" },
-    "physical_balance_stage": { "slot": "center", "coords": [0, 0, 0], "category": "ContrastStage" },
-    "indexed_fact_node": { "slot": "right", "coords": [360, 0, 25], "category": "StateBlock" },
-    "authentic_code_viewport": { "slot": "left_wide", "coords": [-220, 0, 15], "category": "CodeViewport" },
-    "authentic_terminal_bench": { "slot": "right", "coords": [380, -40, 15], "category": "TerminalBench" },
-    "authentic_ui_showcase": { "slot": "center", "coords": [0, 0, 20], "category": "UIViewport" },
-    "benchmark_telemetry_panel": { "slot": "bottom_right", "coords": [380, 180, 20], "category": "TelemetryPanel" },
-    "agent_dispatcher_core": { "slot": "center", "coords": [0, 0, 25], "category": "AgentHub" },
-    "skill_tool_slot": { "slot": "right", "coords": [400, 0, 20], "category": "ToolModule" },
-    "api_client_origin": { "slot": "left", "coords": [-440, 0, 10], "category": "NetworkEndpoint" },
-    "api_gateway_endpoint": { "slot": "center", "coords": [0, 0, 25], "category": "NetworkEndpoint" },
-    "request_packets": { "slot": "center", "coords": [-120, -30, 20], "category": "ParticleEmitter" },
-    "response_payload_crystal": { "slot": "right", "coords": [440, 0, 35], "category": "CrystalEntity" },
-    "editorial_thesis_monolith": { "slot": "center", "coords": [0, 0, 20], "category": "TypographyMonolith" }
+    "3d_filter_machine": {
+      "slot": "center",
+      "coords": [
+        0,
+        -15,
+        20
+      ],
+      "category": "PhysicalMechanism"
+    },
+    "information_particles": {
+      "slot": "left",
+      "coords": [
+        -420,
+        -10,
+        0
+      ],
+      "category": "ParticleEmitter"
+    },
+    "signal_particles": {
+      "slot": "left",
+      "coords": [
+        -420,
+        -10,
+        0
+      ],
+      "category": "ParticleEmitter"
+    },
+    "waste_container": {
+      "slot": "bottom",
+      "coords": [
+        -20,
+        210,
+        -20
+      ],
+      "category": "Container"
+    },
+    "purified_object": {
+      "slot": "right",
+      "coords": [
+        450,
+        -15,
+        45
+      ],
+      "category": "CrystalEntity"
+    },
+    "morphing_crystal": {
+      "slot": "right",
+      "coords": [
+        450,
+        -15,
+        45
+      ],
+      "category": "CrystalEntity"
+    },
+    "layered_architecture": {
+      "slot": "left_wide",
+      "coords": [
+        -180,
+        0,
+        15
+      ],
+      "category": "StructuralStack"
+    },
+    "mechanical_core": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        25
+      ],
+      "category": "StructuralStack"
+    },
+    "rotor_ring_assembly": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        25
+      ],
+      "category": "PhysicalMechanism"
+    },
+    "sqlite_ledger_slab": {
+      "slot": "layer_0",
+      "coords": [
+        -180,
+        130,
+        0
+      ],
+      "category": "ArchitectureSlab"
+    },
+    "vector_index_slab": {
+      "slot": "layer_1",
+      "coords": [
+        -180,
+        0,
+        15
+      ],
+      "category": "ArchitectureSlab"
+    },
+    "graph_topology_slab": {
+      "slot": "layer_2",
+      "coords": [
+        -180,
+        -130,
+        30
+      ],
+      "category": "ArchitectureSlab"
+    },
+    "converged_answer_crystal": {
+      "slot": "right",
+      "coords": [
+        440,
+        0,
+        40
+      ],
+      "category": "CrystalEntity"
+    },
+    "multi_probe_router": {
+      "slot": "right",
+      "coords": [
+        340,
+        0,
+        30
+      ],
+      "category": "TopologyNetwork"
+    },
+    "spatial_topology_graph": {
+      "slot": "right",
+      "coords": [
+        340,
+        0,
+        30
+      ],
+      "category": "TopologyNetwork"
+    },
+    "optical_data_bus": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        10
+      ],
+      "category": "DataConduit"
+    },
+    "vector_probe": {
+      "slot": "left_0",
+      "coords": [
+        -360,
+        -120,
+        0
+      ],
+      "category": "SignalProbe"
+    },
+    "lexical_probe": {
+      "slot": "left_1",
+      "coords": [
+        -360,
+        0,
+        0
+      ],
+      "category": "SignalProbe"
+    },
+    "graph_probe": {
+      "slot": "left_2",
+      "coords": [
+        -360,
+        120,
+        0
+      ],
+      "category": "SignalProbe"
+    },
+    "temporal_probe": {
+      "slot": "left_3",
+      "coords": [
+        -360,
+        180,
+        0
+      ],
+      "category": "SignalProbe"
+    },
+    "network_nodes": {
+      "slot": "right",
+      "coords": [
+        340,
+        0,
+        20
+      ],
+      "category": "TopologyNetwork"
+    },
+    "state_timeline_track": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "TimelineRail"
+    },
+    "historical_state_v1": {
+      "slot": "left",
+      "coords": [
+        -440,
+        0,
+        -15
+      ],
+      "category": "StateBlock"
+    },
+    "incremental_state_v2": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "StateBlock"
+    },
+    "timestamped_latest_state": {
+      "slot": "right",
+      "coords": [
+        440,
+        0,
+        30
+      ],
+      "category": "StateBlock"
+    },
+    "physical_balance_stage": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "ContrastStage"
+    },
+    "indexed_fact_node": {
+      "slot": "right",
+      "coords": [
+        360,
+        0,
+        25
+      ],
+      "category": "StateBlock"
+    },
+    "authentic_code_viewport": {
+      "slot": "left_wide",
+      "coords": [
+        -220,
+        0,
+        15
+      ],
+      "category": "CodeViewport"
+    },
+    "authentic_terminal_bench": {
+      "slot": "right",
+      "coords": [
+        380,
+        -40,
+        15
+      ],
+      "category": "TerminalBench"
+    },
+    "authentic_ui_showcase": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        20
+      ],
+      "category": "UIViewport"
+    },
+    "benchmark_telemetry_panel": {
+      "slot": "bottom_right",
+      "coords": [
+        380,
+        180,
+        20
+      ],
+      "category": "TelemetryPanel"
+    },
+    "agent_dispatcher_core": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        25
+      ],
+      "category": "AgentHub"
+    },
+    "skill_tool_slot": {
+      "slot": "right",
+      "coords": [
+        400,
+        0,
+        20
+      ],
+      "category": "ToolModule"
+    },
+    "api_client_origin": {
+      "slot": "left",
+      "coords": [
+        -440,
+        0,
+        10
+      ],
+      "category": "NetworkEndpoint"
+    },
+    "api_gateway_endpoint": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        25
+      ],
+      "category": "NetworkEndpoint"
+    },
+    "request_packets": {
+      "slot": "center",
+      "coords": [
+        -120,
+        -30,
+        20
+      ],
+      "category": "ParticleEmitter"
+    },
+    "response_payload_crystal": {
+      "slot": "right",
+      "coords": [
+        440,
+        0,
+        35
+      ],
+      "category": "CrystalEntity"
+    },
+    "editorial_thesis_monolith": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        20
+      ],
+      "category": "TypographyMonolith"
+    },
+    "hero_metric_counter": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        20
+      ],
+      "category": "TypographyMonolith"
+    },
+    "architectural_axiom_card": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        20
+      ],
+      "category": "TypographyMonolith"
+    }
   },
-  "motion_primitives": [
-    "particles_flow",
-    "separate",
-    "collide",
-    "split",
-    "merge",
-    "transform",
-    "crystallize",
-    "explode_layers",
-    "disassemble",
-    "rotate_rotor",
-    "interlock",
-    "scan_layer",
-    "assemble",
-    "emit_probes",
-    "weigh_signals",
-    "route_stream",
-    "connect_bus",
-    "converge_result",
-    "append_state",
-    "anchor_timestamp",
-    "trace_lineage",
-    "overload_collapse",
-    "precision_extract",
-    "reveal_ui",
-    "highlight_code",
-    "type_command",
-    "execute_output",
-    "navigate",
-    "interact",
-    "compare_split",
-    "dispatch_tool",
-    "send_request",
-    "stream_response",
-    "kinetic_reveal",
-    "editorial_focus",
-    "metric_counter",
-    "chapter_transition"
-  ],
+  "motion_primitives": {
+    "particles_flow": {
+      "category": "particle",
+      "required_payload": [
+        "flow_speed"
+      ],
+      "optional_payload": [
+        "crystal_facets",
+        "direction",
+        "easing",
+        "gravity",
+        "morph_duration",
+        "particle_count",
+        "separation_axis",
+        "separation_distance",
+        "split_angle",
+        "target_state",
+        "token_labels",
+        "valid_ratio"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/particle_payload",
+        "required": [
+          "flow_speed"
+        ]
+      }
+    },
+    "separate": {
+      "category": "particle",
+      "required_payload": [
+        "gravity"
+      ],
+      "optional_payload": [
+        "crystal_facets",
+        "direction",
+        "easing",
+        "flow_speed",
+        "morph_duration",
+        "particle_count",
+        "separation_axis",
+        "separation_distance",
+        "split_angle",
+        "target_state",
+        "token_labels",
+        "valid_ratio"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/particle_payload",
+        "required": [
+          "gravity"
+        ]
+      }
+    },
+    "collide": {
+      "category": "particle",
+      "required_payload": [],
+      "optional_payload": [
+        "crystal_facets",
+        "direction",
+        "easing",
+        "flow_speed",
+        "gravity",
+        "morph_duration",
+        "particle_count",
+        "separation_axis",
+        "separation_distance",
+        "split_angle",
+        "target_state",
+        "token_labels",
+        "valid_ratio"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/particle_payload"
+      }
+    },
+    "split": {
+      "category": "particle",
+      "required_payload": [
+        "split_angle"
+      ],
+      "optional_payload": [
+        "crystal_facets",
+        "direction",
+        "easing",
+        "flow_speed",
+        "gravity",
+        "morph_duration",
+        "particle_count",
+        "separation_axis",
+        "separation_distance",
+        "target_state",
+        "token_labels",
+        "valid_ratio"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/particle_payload",
+        "required": [
+          "split_angle"
+        ]
+      }
+    },
+    "merge": {
+      "category": "particle",
+      "required_payload": [],
+      "optional_payload": [
+        "crystal_facets",
+        "direction",
+        "easing",
+        "flow_speed",
+        "gravity",
+        "morph_duration",
+        "particle_count",
+        "separation_axis",
+        "separation_distance",
+        "split_angle",
+        "target_state",
+        "token_labels",
+        "valid_ratio"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/particle_payload"
+      }
+    },
+    "transform": {
+      "category": "transformation",
+      "required_payload": [
+        "crystal_facets"
+      ],
+      "optional_payload": [
+        "direction",
+        "easing",
+        "flow_speed",
+        "gravity",
+        "morph_duration",
+        "particle_count",
+        "separation_axis",
+        "separation_distance",
+        "split_angle",
+        "target_state",
+        "token_labels",
+        "valid_ratio"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/particle_payload",
+        "required": [
+          "crystal_facets"
+        ]
+      }
+    },
+    "crystallize": {
+      "category": "transformation",
+      "required_payload": [
+        "crystal_facets"
+      ],
+      "optional_payload": [
+        "direction",
+        "easing",
+        "flow_speed",
+        "gravity",
+        "morph_duration",
+        "particle_count",
+        "separation_axis",
+        "separation_distance",
+        "split_angle",
+        "target_state",
+        "token_labels",
+        "valid_ratio"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/particle_payload",
+        "required": [
+          "crystal_facets"
+        ]
+      }
+    },
+    "explode_layers": {
+      "category": "mechanical",
+      "required_payload": [
+        "explode_distance"
+      ],
+      "optional_payload": [
+        "easing",
+        "focus_layer",
+        "layer_specs",
+        "rotor_rpm",
+        "scan_progress"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/mechanical_payload",
+        "required": [
+          "explode_distance"
+        ]
+      }
+    },
+    "disassemble": {
+      "category": "mechanical",
+      "required_payload": [
+        "explode_distance"
+      ],
+      "optional_payload": [
+        "easing",
+        "focus_layer",
+        "layer_specs",
+        "rotor_rpm",
+        "scan_progress"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/mechanical_payload",
+        "required": [
+          "explode_distance"
+        ]
+      }
+    },
+    "rotate_rotor": {
+      "category": "mechanical",
+      "required_payload": [
+        "rotor_rpm"
+      ],
+      "optional_payload": [
+        "easing",
+        "explode_distance",
+        "focus_layer",
+        "layer_specs",
+        "scan_progress"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/mechanical_payload",
+        "required": [
+          "rotor_rpm"
+        ]
+      }
+    },
+    "interlock": {
+      "category": "mechanical",
+      "required_payload": [],
+      "optional_payload": [
+        "easing",
+        "explode_distance",
+        "focus_layer",
+        "layer_specs",
+        "rotor_rpm",
+        "scan_progress"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/mechanical_payload"
+      }
+    },
+    "scan_layer": {
+      "category": "mechanical",
+      "required_payload": [
+        "focus_layer"
+      ],
+      "optional_payload": [
+        "easing",
+        "explode_distance",
+        "layer_specs",
+        "rotor_rpm",
+        "scan_progress"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/mechanical_payload",
+        "required": [
+          "focus_layer"
+        ]
+      }
+    },
+    "assemble": {
+      "category": "mechanical",
+      "required_payload": [],
+      "optional_payload": [
+        "easing",
+        "explode_distance",
+        "focus_layer",
+        "layer_specs",
+        "rotor_rpm",
+        "scan_progress"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/mechanical_payload"
+      }
+    },
+    "emit_probes": {
+      "category": "dataflow",
+      "required_payload": [],
+      "optional_payload": [
+        "active_channels",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "status_code",
+        "weights"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dataflow_payload"
+      }
+    },
+    "weigh_signals": {
+      "category": "dataflow",
+      "required_payload": [
+        "weights"
+      ],
+      "optional_payload": [
+        "active_channels",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "status_code"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dataflow_payload",
+        "required": [
+          "weights"
+        ]
+      }
+    },
+    "route_stream": {
+      "category": "dataflow",
+      "required_payload": [],
+      "optional_payload": [
+        "active_channels",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "status_code",
+        "weights"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dataflow_payload"
+      }
+    },
+    "route_parallel": {
+      "category": "dataflow",
+      "required_payload": [
+        "weights"
+      ],
+      "optional_payload": [
+        "active_channels",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "status_code"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dataflow_payload",
+        "required": [
+          "weights"
+        ]
+      }
+    },
+    "connect_bus": {
+      "category": "dataflow",
+      "required_payload": [],
+      "optional_payload": [
+        "active_channels",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "explode_distance",
+        "focus_layer",
+        "layer_specs",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "rotor_rpm",
+        "scan_progress",
+        "status_code",
+        "weights"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/bus_payload"
+      }
+    },
+    "converge_result": {
+      "category": "dataflow",
+      "required_payload": [
+        "confidence_target"
+      ],
+      "optional_payload": [
+        "active_channels",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "status_code",
+        "weights"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dataflow_payload",
+        "required": [
+          "confidence_target"
+        ]
+      }
+    },
+    "append_state": {
+      "category": "timeline",
+      "required_payload": [],
+      "optional_payload": [
+        "active_node_index",
+        "easing",
+        "overload_tokens",
+        "precision_tokens",
+        "strain_level",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/timeline_payload"
+      }
+    },
+    "anchor_timestamp": {
+      "category": "timeline",
+      "required_payload": [
+        "timestamps"
+      ],
+      "optional_payload": [
+        "active_node_index",
+        "easing",
+        "overload_tokens",
+        "precision_tokens",
+        "strain_level"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/timeline_payload",
+        "required": [
+          "timestamps"
+        ]
+      }
+    },
+    "trace_lineage": {
+      "category": "timeline",
+      "required_payload": [],
+      "optional_payload": [
+        "active_node_index",
+        "easing",
+        "overload_tokens",
+        "precision_tokens",
+        "strain_level",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/timeline_payload"
+      }
+    },
+    "overload_collapse": {
+      "category": "timeline",
+      "required_payload": [
+        "strain_level"
+      ],
+      "optional_payload": [
+        "active_node_index",
+        "easing",
+        "overload_tokens",
+        "precision_tokens",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/timeline_payload",
+        "required": [
+          "strain_level"
+        ]
+      }
+    },
+    "precision_extract": {
+      "category": "timeline",
+      "required_payload": [],
+      "optional_payload": [
+        "active_node_index",
+        "easing",
+        "overload_tokens",
+        "precision_tokens",
+        "strain_level",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/timeline_payload"
+      }
+    },
+    "reveal_ui": {
+      "category": "interface",
+      "required_payload": [],
+      "optional_payload": [
+        "command_index",
+        "cursor_pos",
+        "easing",
+        "lines",
+        "split_ratio",
+        "zoom_region"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/interface_payload"
+      }
+    },
+    "highlight_code": {
+      "category": "interface",
+      "required_payload": [
+        "lines"
+      ],
+      "optional_payload": [
+        "command_index",
+        "cursor_pos",
+        "easing",
+        "split_ratio",
+        "zoom_region"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/interface_payload",
+        "required": [
+          "lines"
+        ]
+      }
+    },
+    "type_command": {
+      "category": "interface",
+      "required_payload": [
+        "command_index"
+      ],
+      "optional_payload": [
+        "cursor_pos",
+        "easing",
+        "lines",
+        "split_ratio",
+        "zoom_region"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/interface_payload",
+        "required": [
+          "command_index"
+        ]
+      }
+    },
+    "execute_output": {
+      "category": "interface",
+      "required_payload": [],
+      "optional_payload": [
+        "command_index",
+        "cursor_pos",
+        "easing",
+        "lines",
+        "split_ratio",
+        "zoom_region"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/interface_payload"
+      }
+    },
+    "navigate": {
+      "category": "interface",
+      "required_payload": [],
+      "optional_payload": [
+        "command_index",
+        "cursor_pos",
+        "easing",
+        "lines",
+        "split_ratio",
+        "zoom_region"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/interface_payload"
+      }
+    },
+    "interact": {
+      "category": "interface",
+      "required_payload": [
+        "cursor_pos"
+      ],
+      "optional_payload": [
+        "command_index",
+        "easing",
+        "lines",
+        "split_ratio",
+        "zoom_region"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/interface_payload",
+        "required": [
+          "cursor_pos"
+        ]
+      }
+    },
+    "compare_split": {
+      "category": "interface",
+      "required_payload": [
+        "split_ratio"
+      ],
+      "optional_payload": [
+        "command_index",
+        "cursor_pos",
+        "easing",
+        "lines",
+        "zoom_region"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/interface_payload",
+        "required": [
+          "split_ratio"
+        ]
+      }
+    },
+    "dispatch_tool": {
+      "category": "dataflow",
+      "required_payload": [],
+      "optional_payload": [
+        "active_channels",
+        "active_node_index",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "overload_tokens",
+        "precision_tokens",
+        "probe_count",
+        "pulse_speed",
+        "status_code",
+        "strain_level",
+        "timestamps",
+        "weights"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dispatch_payload"
+      }
+    },
+    "send_request": {
+      "category": "dataflow",
+      "required_payload": [],
+      "optional_payload": [
+        "active_channels",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "status_code",
+        "weights"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dataflow_payload"
+      }
+    },
+    "stream_response": {
+      "category": "dataflow",
+      "required_payload": [],
+      "optional_payload": [
+        "active_channels",
+        "confidence_target",
+        "direction",
+        "easing",
+        "endpoint_label",
+        "node_connections",
+        "probe_count",
+        "pulse_speed",
+        "status_code",
+        "weights"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/dataflow_payload"
+      }
+    },
+    "kinetic_reveal": {
+      "category": "typography",
+      "required_payload": [],
+      "optional_payload": [
+        "axiom_number",
+        "easing",
+        "headline",
+        "metric_unit",
+        "metric_value",
+        "subheadline"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/typography_payload"
+      }
+    },
+    "editorial_focus": {
+      "category": "typography",
+      "required_payload": [],
+      "optional_payload": [
+        "axiom_number",
+        "easing",
+        "headline",
+        "metric_unit",
+        "metric_value",
+        "subheadline"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/typography_payload"
+      }
+    },
+    "metric_counter": {
+      "category": "typography",
+      "required_payload": [
+        "metric_value"
+      ],
+      "optional_payload": [
+        "axiom_number",
+        "easing",
+        "headline",
+        "metric_unit",
+        "subheadline"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/typography_payload",
+        "required": [
+          "metric_value"
+        ]
+      }
+    },
+    "chapter_transition": {
+      "category": "typography",
+      "required_payload": [],
+      "optional_payload": [
+        "axiom_number",
+        "easing",
+        "headline",
+        "metric_unit",
+        "metric_value",
+        "subheadline"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/typography_payload"
+      }
+    },
+    "hold": {
+      "category": "static",
+      "required_payload": [],
+      "optional_payload": [],
+      "payload_schema": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    }
+  },
   "renderers": [
     {
       "id": "particle_filter_v1",
-      "aliases": ["PhysicalSimulation"],
-      "version": "4.2.0",
+      "aliases": [
+        "PhysicalSimulation"
+      ],
+      "version": "4.3.0",
       "component": "PhysicalSimulationRenderer",
       "name": "3D 粒子过滤与多面体结晶仿真渲染器",
       "category": "PhysicalSimulation",
-      "renderTech": ["ThreeJS", "SVG", "Remotion+CSS"],
+      "renderTech": [
+        "ThreeJS",
+        "SVG",
+        "Remotion+CSS"
+      ],
       "supportedActions": [
+        "hold",
         "particles_flow",
         "separate",
         "collide",
@@ -195,6 +1237,12 @@
         "editorial_drafting_table"
       ],
       "payloadSchema": [
+        "easing",
+        "direction",
+        "separation_axis",
+        "separation_distance",
+        "target_state",
+        "morph_duration",
         "particle_count",
         "valid_ratio",
         "flow_speed",
@@ -206,13 +1254,20 @@
     },
     {
       "id": "architecture_v1",
-      "aliases": ["MechanicalStructure"],
-      "version": "4.2.0",
+      "aliases": [
+        "MechanicalStructure"
+      ],
+      "version": "4.3.0",
       "component": "MechanicalStructureRenderer",
       "name": "3D 机械与多层系统架构拆解渲染器",
       "category": "MechanicalStructure",
-      "renderTech": ["ThreeJS", "SVG", "Remotion+CSS"],
+      "renderTech": [
+        "ThreeJS",
+        "SVG",
+        "Remotion+CSS"
+      ],
       "supportedActions": [
+        "hold",
         "explode_layers",
         "disassemble",
         "rotate_rotor",
@@ -246,6 +1301,7 @@
         "editorial_drafting_table"
       ],
       "payloadSchema": [
+        "easing",
         "explode_distance",
         "focus_layer",
         "rotor_rpm",
@@ -255,13 +1311,20 @@
     },
     {
       "id": "dataflow_router_v1",
-      "aliases": ["DataFlow"],
-      "version": "4.2.0",
+      "aliases": [
+        "DataFlow"
+      ],
+      "version": "4.3.0",
       "component": "DataFlowRenderer",
       "name": "多路数据流、API 通信与三维空间拓扑渲染器",
       "category": "DataFlow",
-      "renderTech": ["SVG", "ThreeJS", "Remotion+CSS"],
+      "renderTech": [
+        "SVG",
+        "ThreeJS",
+        "Remotion+CSS"
+      ],
       "supportedActions": [
+        "hold",
         "emit_probes",
         "weigh_signals",
         "route_stream",
@@ -305,6 +1368,8 @@
         "editorial_drafting_table"
       ],
       "payloadSchema": [
+        "easing",
+        "direction",
         "probe_count",
         "weights",
         "active_channels",
@@ -317,13 +1382,20 @@
     },
     {
       "id": "timeline_state_v1",
-      "aliases": ["SystemArchitecture"],
-      "version": "4.2.0",
+      "aliases": [
+        "SystemArchitecture"
+      ],
+      "version": "4.3.0",
       "component": "SystemArchitectureRenderer",
       "name": "时序状态演进与空间负载对比渲染器",
       "category": "SystemArchitecture",
-      "renderTech": ["SVG", "Remotion+CSS", "ThreeJS"],
+      "renderTech": [
+        "SVG",
+        "Remotion+CSS",
+        "ThreeJS"
+      ],
       "supportedActions": [
+        "hold",
         "append_state",
         "anchor_timestamp",
         "trace_lineage",
@@ -354,6 +1426,7 @@
         "dark_architectural_stage"
       ],
       "payloadSchema": [
+        "easing",
         "overload_tokens",
         "precision_tokens",
         "timestamps",
@@ -363,13 +1436,20 @@
     },
     {
       "id": "product_interface_v1",
-      "aliases": ["ProductInterface"],
-      "version": "4.2.0",
+      "aliases": [
+        "ProductInterface"
+      ],
+      "version": "4.3.0",
       "component": "ProductInterfaceRenderer",
       "name": "真实代码、终端实操与产品界面演示渲染器",
       "category": "ProductInterface",
-      "renderTech": ["ScreenRecording", "Remotion+CSS", "SVG"],
+      "renderTech": [
+        "ScreenRecording",
+        "Remotion+CSS",
+        "SVG"
+      ],
       "supportedActions": [
+        "hold",
         "reveal_ui",
         "highlight_code",
         "type_command",
@@ -398,6 +1478,7 @@
         "dark_architectural_stage"
       ],
       "payloadSchema": [
+        "easing",
         "lines",
         "command_index",
         "zoom_region",
@@ -407,13 +1488,19 @@
     },
     {
       "id": "kinetic_thesis_v1",
-      "aliases": ["KineticTypography"],
-      "version": "4.2.0",
+      "aliases": [
+        "KineticTypography"
+      ],
+      "version": "4.3.0",
       "component": "KineticTypographyRenderer",
       "name": "高级编辑动态排版与核心命题揭示渲染器",
       "category": "KineticTypography",
-      "renderTech": ["Remotion+CSS", "SVG"],
+      "renderTech": [
+        "Remotion+CSS",
+        "SVG"
+      ],
       "supportedActions": [
+        "hold",
         "kinetic_reveal",
         "editorial_focus",
         "metric_counter",
@@ -435,6 +1522,7 @@
         "dark_architectural_stage"
       ],
       "payloadSchema": [
+        "easing",
         "headline",
         "subheadline",
         "metric_value",

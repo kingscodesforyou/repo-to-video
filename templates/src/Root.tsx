@@ -3,7 +3,7 @@ import { Composition } from "remotion";
 import { TutorialVideo, TutorialVideoProps } from "./compositions/TutorialVideo";
 
 const defaultProps: TutorialVideoProps = {
-  schemaVersion: "4.2",
+  schemaVersion: "4.3",
   title: "Mem0: AI 长期记忆的物理提纯与多层架构拆解",
   repoName: "mem0",
   repoType: "RUNNABLE",

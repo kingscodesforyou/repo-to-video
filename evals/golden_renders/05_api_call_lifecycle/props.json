@@ -1,0 +1,193 @@
+{
+  "schemaVersion": "4.3",
+  "title": "Benchmark 05: API 调用全生命周期与流式响应回传",
+  "repoName": "api-lifecycle-benchmark",
+  "repoUrl": "",
+  "repoType": "RUNNABLE",
+  "heroSceneId": "eval_api_01",
+  "chapters": [
+    "API 调用全过程"
+  ],
+  "globalArtDirection": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "light_editorial",
+    "lighting_preset": "editorial_daylight",
+    "camera_philosophy": "continuous_narrative_flow",
+    "max_element_budget": 4
+  },
+  "fps": 30,
+  "totalFrames": 120,
+  "scenes": [
+    {
+      "id": "eval_api_01",
+      "renderer_id": "dataflow_router_v1",
+      "chapter": "API 调用全过程",
+      "title": "客户端报文发射、网关路由与流式响应",
+      "continuity_group": "api_lifecycle_benchmark",
+      "narration": "客户端首先封装结构化请求报文并发起调用，经由 API 网关完成多通道鉴权与路由分发，最后将流式响应载荷实时汇聚回传。",
+      "visual_intent": "在浅色编辑制图台环境中展示 API 请求发送、网关并发路由与响应载荷晶体回传",
+      "art_direction": {
+        "style": "editorial_motion",
+        "theme": "light_editorial",
+        "lighting": "editorial_daylight",
+        "material": "matte_acrylic",
+        "accent_color": "#2563EB",
+        "element_budget": 4
+      },
+      "visual_world": {
+        "environment": "editorial_drafting_table",
+        "primary_object": "api_gateway_endpoint",
+        "secondary_objects": [
+          "api_client_origin",
+          "request_packets",
+          "response_payload_crystal"
+        ]
+      },
+      "visual_choreography": [
+        {
+          "beat": "请求报文发射",
+          "phrase_anchor": "客户端首先封装结构化请求报文并发起调用",
+          "action": "send_request",
+          "target": "api_client_origin",
+          "description": "客户端节点发出结构化请求报文流进入网关通道",
+          "camera": "slow_dolly_in",
+          "shot_scale": "wide",
+          "yielding": [
+            {
+              "target": "api_gateway_endpoint",
+              "opacity": 0.42,
+              "scale": 0.96,
+              "zOffset": -24,
+              "blur": 1.0
+            }
+          ],
+          "payload": {
+            "weights": [
+              98,
+              95,
+              99
+            ]
+          }
+        },
+        {
+          "beat": "网关鉴权与路由",
+          "phrase_anchor": "经由 API 网关完成多通道鉴权与路由分发",
+          "action": "route_parallel",
+          "target": "request_packets",
+          "description": "请求报文在网关层并行通过鉴权、限流与上游路由检查",
+          "camera": "track_horizontal",
+          "shot_scale": "medium",
+          "yielding": [
+            {
+              "target": "api_client_origin",
+              "opacity": 0.3,
+              "scale": 0.93,
+              "zOffset": -35,
+              "blur": 1.5
+            },
+            {
+              "target": "background_grid",
+              "opacity": 0.2
+            }
+          ],
+          "payload": {
+            "weights": [
+              98,
+              95,
+              99
+            ]
+          }
+        },
+        {
+          "beat": "流式响应回传",
+          "phrase_anchor": "最后将流式响应载荷实时汇聚回传",
+          "action": "stream_response",
+          "target": "api_gateway_endpoint",
+          "description": "右侧三维拓扑网络聚拢为高完整性流式响应载荷晶体",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "yielding": [
+            {
+              "target": "api_client_origin",
+              "opacity": 0.25,
+              "scale": 0.9,
+              "zOffset": -45,
+              "blur": 2.0
+            },
+            {
+              "target": "request_packets",
+              "opacity": 0.25,
+              "scale": 0.9,
+              "zOffset": -45,
+              "blur": 2.0
+            }
+          ],
+          "payload": {
+            "confidence_target": 99.8
+          }
+        }
+      ],
+      "text_overlays": [
+        {
+          "text": "P99 延迟 18ms",
+          "role": "metric",
+          "beat_index": 2
+        }
+      ],
+      "type": "choreographed_v4",
+      "durationInFrames": 120,
+      "durationSec": 4.0,
+      "audioFrames": 120,
+      "startFrame": 0,
+      "start_frame": 0,
+      "endFrame": 119,
+      "end_frame": 119,
+      "beat_timings": [
+        {
+          "beat_index": 0,
+          "beat": "请求报文发射",
+          "action": "send_request",
+          "target": "api_client_origin",
+          "phrase_anchor": "客户端首先封装结构化请求报文并发起调用",
+          "camera": "slow_dolly_in",
+          "shot_scale": "wide",
+          "start_frame": 0,
+          "startFrame": 0,
+          "end_frame": 39,
+          "endFrame": 39,
+          "mid_frame": 20
+        },
+        {
+          "beat_index": 1,
+          "beat": "网关鉴权与路由",
+          "action": "route_parallel",
+          "target": "request_packets",
+          "phrase_anchor": "经由 API 网关完成多通道鉴权与路由分发",
+          "camera": "track_horizontal",
+          "shot_scale": "medium",
+          "start_frame": 40,
+          "startFrame": 40,
+          "end_frame": 79,
+          "endFrame": 79,
+          "mid_frame": 60
+        },
+        {
+          "beat_index": 2,
+          "beat": "流式响应回传",
+          "action": "stream_response",
+          "target": "api_gateway_endpoint",
+          "phrase_anchor": "最后将流式响应载荷实时汇聚回传",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "start_frame": 80,
+          "startFrame": 80,
+          "end_frame": 119,
+          "endFrame": 119,
+          "mid_frame": 100
+        }
+      ],
+      "phrase_timings": [],
+      "word_timings": []
+    }
+  ]
+}

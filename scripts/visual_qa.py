@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-visual_qa.py (v4.2) - 四层可执行视觉审核系统与强交付门禁 (Schema QA + Render QA + Motion QA + Hash-Bound Semantic QA)
+visual_qa.py (v4.3) - 四层可执行视觉审核系统与强交付门禁 (Schema QA + Render QA + Motion QA + Hash-Bound Semantic QA)
 1. Schema QA: 校验唯一数据源 renderer-registry.json 绑定、动作支持度、元素预算 (<= 4)、结构化让位规则与真实代码资产
 2. Render QA: 严格检查每一帧静帧与样板视频渲染返回状态及 PNG 文件完整性，任何缺帧直接判为失败
 3. Motion QA: 抽样每一个动作节拍 (Beat) 的起/中/止关键帧 + 所有节拍交界处的连续帧，检测动作冻结与跳变
@@ -15,12 +15,20 @@ import json
 import math
 import shutil
 import hashlib
+import re
+import struct
+import zlib
 import argparse
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
+
+from build_fingerprint import (
+    canonical_json, compute_build_fingerprint, file_sha256, load_root_registry,
+    read_json, reject, validate_qa_frame_cache,
+)
 
 MANDATORY_SEMANTIC_QUESTIONS = [
     {
@@ -59,48 +67,127 @@ def resolve_remotion_workdir() -> Path:
 
 
 def verify_png_file(png_path: Path) -> bool:
-    """验证渲染出的 PNG 文件真实存在、字节数正常且具有合法的 PNG 签名头"""
-    if not png_path.exists():
-        return False
+    """Validate PNG chunks/CRCs and compressed pixels, without requiring Pillow."""
     try:
-        size = png_path.stat().st_size
-        if size < 512:
+        data = Path(png_path).read_bytes()
+        if data[:8] != b"\x89PNG\r\n\x1a\n":
             return False
-        with open(png_path, "rb") as f:
-            sig = f.read(8)
-        return sig == b"\x89PNG\r\n\x1a\n"
-    except Exception:
+        pos, chunks, pixels = 8, [], bytearray()
+        while pos + 12 <= len(data):
+            size = struct.unpack(">I", data[pos:pos + 4])[0]
+            kind = data[pos + 4:pos + 8]
+            end = pos + 8 + size
+            if end + 4 > len(data):
+                return False
+            payload = data[pos + 8:end]
+            if zlib.crc32(kind + payload) & 0xffffffff != struct.unpack(">I", data[end:end + 4])[0]:
+                return False
+            chunks.append(kind)
+            if kind == b"IHDR":
+                if len(chunks) != 1 or size != 13:
+                    return False
+                width, height = struct.unpack(">II", payload[:8])
+                if width == 0 or height == 0:
+                    return False
+            elif kind == b"IDAT":
+                pixels.extend(payload)
+            elif kind == b"IEND":
+                return (size == 0 and end + 4 == len(data) and chunks[0] == b"IHDR"
+                        and b"IDAT" in chunks and bool(zlib.decompress(pixels)))
+            pos = end + 4
+        return False
+    except (OSError, ValueError, struct.error, zlib.error):
         return False
 
 
 def compute_scene_signature_hash(
     scene: Dict[str, Any],
     registry_version: str,
-    sampled_pngs: List[Path]
+    sampled_pngs: List[Path],
+    build_fingerprint: Optional[Dict[str, Any]] = None,
 ) -> str:
+    """Bind FULL scene, build and ordered key/continuous frame names + bytes.
+
+    The original three-argument API remains available for run_evals. Production
+    evidence always supplies the complete fingerprint and the full frame plan.
+    Missing / invalid images never silently disappear from a signature.
     """
-    计算镜头内容 + 渲染器版本 + 渲染关键帧字节指纹的 SHA-256 签名 (scene_signature_hash)。
-    任何文案、动作编排、让位参数或渲染画面的修改都会改变此哈希，自动使旧的 Semantic QA 审批失效。
-    """
-    canonical_payload = {
+    images = []
+    for png in sampled_pngs:
+        png = Path(png)
+        if not verify_png_file(png):
+            reject(f"Cannot sign invalid PNG: {png}", "REJECTED_RENDER_FAILURE")
+        images.append({"name": png.name, "sha256": file_sha256(png)})
+    return hashlib.sha256(canonical_json({
+        "signature_version": 2,
         "registry_version": registry_version,
-        "id": scene.get("id"),
-        "renderer_id": scene.get("renderer_id"),
-        "narration": scene.get("narration"),
-        "visual_intent": scene.get("visual_intent"),
-        "art_direction": scene.get("art_direction"),
-        "visual_world": scene.get("visual_world"),
-        "visual_choreography": scene.get("visual_choreography"),
-        "text_overlays": scene.get("text_overlays"),
-    }
-    hasher = hashlib.sha256()
-    hasher.update(
-        json.dumps(canonical_payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    )
-    for p in sampled_pngs:
-        if verify_png_file(p):
-            hasher.update(hashlib.sha256(p.read_bytes()).digest())
-    return hasher.hexdigest()[:24]
+        "scene": scene,
+        "build_fingerprint": build_fingerprint,
+        "frames": images,
+    })).hexdigest()
+
+
+def plan_qa_scenes(props: Dict[str, Any], mode: str):
+    """Select scenes while retaining their real offsets in TutorialVideo."""
+    if mode not in ("full", "hero-shot", "first-shot"):
+        reject(f"Unsupported QA mode: {mode}", "REJECTED_INVALID_PROPS")
+    scenes = props.get("scenes")
+    if not isinstance(scenes, list) or not scenes:
+        reject("Props require nonempty scenes", "REJECTED_INVALID_PROPS")
+    result, seen, offset = [], set(), 0
+    for scene in scenes:
+        sid = scene.get("id") if isinstance(scene, dict) else None
+        if not isinstance(sid, str) or not re.fullmatch(r"[\w-]+", sid) or sid in seen:
+            reject(f"Unsafe or duplicate scene ID: {sid}", "REJECTED_INVALID_PROPS")
+        seen.add(sid)
+        duration = scene.get("durationInFrames", 120)
+        if type(duration) is not int or duration < 1:
+            reject(f"Invalid duration: {sid}", "REJECTED_INVALID_PROPS")
+        result.append((scene, offset))
+        offset += duration
+    if mode != "full":
+        hero = props.get("heroSceneId")
+        return [next((pair for pair in result if pair[0]["id"] == hero), result[0])]
+    return result
+
+
+def scene_frame_plan(scene: Dict[str, Any], start_frame: int):
+    """One deterministic manifest shared by rendering, cache and final gate."""
+    duration = scene.get("durationInFrames", 120)
+    sid = scene["id"]
+    beats = scene.get("beat_timings") or []
+    points = []
+
+    def add(kind, tag, local_frame, beat_index):
+        frame = start_frame + max(0, min(duration - 1, int(local_frame)))
+        safe_tag = re.sub(r"[^\w-]", "_", tag)
+        points.append({"kind": kind, "tag": tag, "frame": frame,
+                       "beat_index": beat_index,
+                       "filename": f"{sid}_{len(points):03d}_{safe_tag}_f{frame}.png"})
+
+    for index, beat in enumerate(beats):
+        b_idx = beat.get("beat_index", index)
+        if type(b_idx) is not int or b_idx < 0:
+            reject(f"Invalid beat_index: {sid}", "REJECTED_INVALID_PROPS")
+        name = beat.get("beat", f"B{b_idx + 1}")
+        begin = beat.get("start_frame", beat.get("startFrame", 0))
+        end = beat.get("end_frame", beat.get("endFrame", duration))
+        begin = 0 if begin is None else begin
+        end = duration if end is None else end
+        middle = beat.get("mid_frame", (int(begin) + int(end)) // 2)
+        # Keep samples inside the beat, including very short holds.
+        last = max(int(begin), int(end) - 1)
+        for label, frame in (("Start", min(last, int(begin) + 3)),
+                             ("Mid", middle), ("End", max(int(begin), last - 2))):
+            add("key", f"B{b_idx+1}_{name}_{label}", frame, b_idx)
+    if not beats:
+        for label, fraction in (("Start", .15), ("Mid", .50), ("End", .85)):
+            add("key", f"Scene_{label}", int(duration * fraction), 0)
+    for index, beat in enumerate(beats[:-1]):
+        end = beat.get("end_frame", beat.get("endFrame", duration // 2))
+        for delta in (-3, 0, 3):
+            add("continuous", f"B{index+1}->B{index+2}({delta:+d}f)", int(end) + delta, index)
+    return points
 
 
 def render_still_frame(
@@ -134,20 +221,19 @@ def compute_image_diff_score(img_a: Path, img_b: Path) -> float:
             mean_diff = sum(stat.mean) / 3.0
             return round((mean_diff / 255.0) * 100.0, 2)
     except Exception:
-        b1 = img_a.read_bytes()
-        b2 = img_b.read_bytes()
-        return 0.0 if b1 == b2 else 5.0
+        # Missing decoder, corrupt PNG or comparison errors are not motion PASS.
+        return -1.0
 
 
 def build_contact_sheet_image(
     items: List[Dict[str, Any]],
     out_sheet_path: Path,
     columns: int = 3,
-    title: str = "repo-to-video v4.2 Visual QA Contact Sheet"
+    title: str = "repo-to-video v4.3 Visual QA Contact Sheet"
 ) -> bool:
     """将抽样关键帧拼接为带场景 ID、节拍名称、动作与帧号标注的 Contact Sheet 审片大图"""
     valid_items = [it for it in items if verify_png_file(Path(it["image_path"]))]
-    if not valid_items:
+    if not valid_items or len(valid_items) != len(items):
         return False
 
     out_sheet_path.parent.mkdir(parents=True, exist_ok=True)
@@ -208,13 +294,16 @@ def build_contact_sheet_image(
     layouts = [f"{(idx % cols) * 640}_{(idx // cols) * 360}" for idx in range(n)]
     filter_complex = f"{filter_in}{concat_in}xstack=inputs={n}:layout={'|'.join(layouts)}[out]"
 
-    subprocess.run(
-        [ffmpeg, "-y", *inputs, "-filter_complex", filter_complex, "-map", "[out]", str(out_sheet_path)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    return verify_png_file(out_sheet_path)
+    try:
+        result = subprocess.run(
+            [ffmpeg, "-y", *inputs, "-filter_complex", filter_complex, "-map", "[out]", str(out_sheet_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return result.returncode == 0 and verify_png_file(out_sheet_path)
+    except OSError:
+        return False
 
 
 def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict[str, Any]:
@@ -277,7 +366,9 @@ def generate_semantic_qa_artifacts(
     scenes: List[Dict[str, Any]],
     scene_signatures: Dict[str, str],
     output_dir: Path,
-    contact_sheet_path: Path
+    contact_sheet_path: Path,
+    build_fingerprint: Optional[Dict[str, Any]] = None,
+    scope: str = "full",
 ) -> Dict[str, Any]:
     """
     第 4 层：Hash-Bound Semantic QA（绑定签名哈希的语义与审美独立审片清单生成与核验）
@@ -290,10 +381,16 @@ def generate_semantic_qa_artifacts(
     existing_verdicts = {}
     if checklist_path.exists():
         try:
-            old_data = json.loads(checklist_path.read_text(encoding="utf-8"))
-            for item in old_data.get("scenes", []):
-                if item.get("agent_verified"):
-                    existing_verdicts[item["scene_id"]] = item
+            old_data = read_json(checklist_path)
+            old_scenes = old_data.get("scenes", [])
+            ids = [item["scene_id"] for item in old_scenes]
+            compatible = (build_fingerprint is None or (
+                canonical_json(old_data.get("build_fingerprint")) == canonical_json(build_fingerprint)
+                and old_data.get("scope") == scope))
+            if compatible and len(ids) == len(set(ids)):
+                for item in old_scenes:
+                    if item.get("agent_verified") is True:
+                        existing_verdicts[item["scene_id"]] = item
         except Exception:
             pass
 
@@ -302,10 +399,10 @@ def generate_semantic_qa_artifacts(
     failed_semantic_issues = []
 
     md_lines = [
-        "# Visual QA 第 4 层：Semantic QA 真实画面审美审片单 (v4.2)",
+        "# Visual QA 第 4 层：Semantic QA 真实画面审美审片单 (v4.3)",
         "",
         f"- **全片 Contact Sheet 路径**: `{contact_sheet_path}`",
-        "- **哈希绑定机制**: 每个镜头的审批结论均与 `scene_signature_hash`（分镜 JSON + 渲染器版本 + 关键帧图像 SHA-256）强绑定；修改分镜后旧审批自动失效。",
+        "- **哈希绑定机制**: 每个镜头的审批结论均与 `scene_signature_hash`（完整分镜 + 构建指纹 + 关键帧及连续帧 SHA-256）强绑定；修改分镜后旧审批自动失效。",
         "- **审核要求**: Visual QA Agent 必须使用 `read_file` 直接查看上述 Contact Sheet 图片及各镜头的 `continuous_<scene_id>.png` 连续帧图片，逐镜回答以下 5 个问题，并将 `semantic_qa_checklist.json` 中的 `agent_verified` 设为 `true`。",
         "",
     ]
@@ -317,9 +414,16 @@ def generate_semantic_qa_artifacts(
 
         if prev and prev.get("scene_signature_hash") == sig_hash:
             semantic_scenes.append(prev)
+            answers = prev.get("answers")
+            if not isinstance(answers, dict):
+                answers = {}
+            if set(answers) != {q["id"] for q in MANDATORY_SEMANTIC_QUESTIONS}:
+                failed_semantic_issues.append(f"[{sid}] Semantic QA: 缺失或额外的五问答案。")
             for q in MANDATORY_SEMANTIC_QUESTIONS:
-                ans = prev.get("answers", {}).get(q["id"], {})
-                if not ans.get("pass", False):
+                ans = answers.get(q["id"], {})
+                if not isinstance(ans, dict):
+                    ans = {}
+                if ans.get("pass") is not True:
                     failed_semantic_issues.append(
                         f"[{sid}] Semantic QA 未通过 ({q['id']}): {ans.get('comment', '不合格')}"
                     )
@@ -360,7 +464,9 @@ def generate_semantic_qa_artifacts(
         md_lines.append("")
 
     checklist_payload = {
-        "version": "4.2",
+        "version": "4.3",
+        "scope": scope,
+        "build_fingerprint": build_fingerprint,
         "contact_sheet": str(contact_sheet_path),
         "all_verified": unverified_count == 0 and len(failed_semantic_issues) == 0,
         "unverified_scenes_count": unverified_count,
@@ -392,252 +498,189 @@ def run_visual_qa(
     output_dir: Path,
     mode: str = "full",
     render_video_out: Optional[Path] = None,
-    render_frames: bool = True
+    render_frames: bool = True,
+    remotion_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """
-    执行 v4.2 四层视觉 QA：
-    - Layer 1: Schema QA
-    - Layer 2: Render QA (严格验证每一次静帧渲染返回码与 PNG 签名，任何失败直接阻断)
-    - Layer 3: Motion QA (采样每个动作节拍的起/中/止帧 + 每个节拍交界处的连续帧)
-    - Layer 4: Hash-Bound Semantic QA (生成绑定签名哈希的五问审片单，核验真实画面是否准确表达口播文案)
-    """
-    from build_video import load_registry_manifest
+    """Run four-layer QA against a pinned build; sample scope is never final QA.
 
-    props_path = props_path.resolve()
-    output_dir = output_dir.resolve()
+    --no-render-frames only reuses a complete, hash-verified report from this
+    output directory. A pending checklist is allowed, unknown-origin frames aren't.
+    """
+    props_path, output_dir = Path(props_path).resolve(), Path(output_dir).resolve()
+    remotion_dir = Path(remotion_dir or resolve_remotion_workdir()).resolve()
+    before = compute_build_fingerprint(props_path, remotion_dir)
+    props = read_json(props_path)
+    planned_scenes = plan_qa_scenes(props, mode)
+    scenes = [pair[0] for pair in planned_scenes]
+    manifest = load_root_registry()
+    registry_version = manifest["registry_version"]
+    scope = "full" if mode == "full" else "sample"
+    report_path = output_dir / "visual_qa_report.json"
+    if not render_frames:
+        cached = validate_qa_frame_cache(report_path, props_path, remotion_dir, mode, before)
+        if cached["qa_output_dir"] != str(output_dir):
+            reject("Cache belongs to another QA directory", "REJECTED_STALE_QA_CACHE")
+
     output_dir.mkdir(parents=True, exist_ok=True)
     frames_dir = output_dir / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
+    render_failures, all_issues, contact_items, scene_reports = [], [], [], []
+    scene_signatures, artifact_hashes = {}, {}
 
-    manifest = load_registry_manifest()
-    registry_version = str(manifest.get("version", "4.2.0"))
-    props = json.loads(props_path.read_text(encoding="utf-8"))
-    scenes = props.get("scenes", [])
-    if not scenes:
-        raise ValueError(f"No scenes in {props_path}")
-
-    if mode in ("hero-shot", "first-shot"):
-        hero_id = props.get("heroSceneId")
-        if hero_id:
-            matched = [s for s in scenes if s.get("id") == hero_id]
-            scenes = matched if matched else scenes[:1]
-        else:
-            scenes = scenes[:1]
-
-    remotion_dir = resolve_remotion_workdir()
-    render_failures: List[str] = []
-
-    if mode in ("hero-shot", "first-shot") and render_video_out is not None and render_frames:
+    if scope == "sample" and render_video_out is not None and render_frames:
+        render_video_out = Path(render_video_out).resolve()
         render_video_out.parent.mkdir(parents=True, exist_ok=True)
-        print(f"🎬 正在渲染样板审核视频: {render_video_out} ...")
         cmd = f'npx remotion render src/index.ts TutorialVideo "{render_video_out}" --props="{props_path}"'
         res = subprocess.run(cmd, cwd=str(remotion_dir), shell=True)
-        if res.returncode != 0 or not render_video_out.exists():
-            render_failures.append(f"样板视频渲染失败: {render_video_out}")
+        if res.returncode != 0 or not render_video_out.is_file():
+            render_failures.append(f"Render QA: 样板视频渲染失败: {render_video_out}")
 
-    contact_items: List[Dict[str, Any]] = []
-    scene_reports: List[Dict[str, Any]] = []
-    scene_signatures: Dict[str, str] = {}
-    all_issues: List[str] = []
-
-    acc_frame = 0
-    for idx, scene in enumerate(scenes):
-        sid = scene.get("id", f"scene_{idx + 1}")
-        dur = int(scene.get("durationInFrames", 120))
-        start_f = acc_frame
-        end_f = acc_frame + dur
-
-        # Layer 1: Schema QA
-        schema_qa = run_schema_qa_layer(scene, manifest)
-        scene_issues = list(schema_qa["issues"])
-
-        # Layer 2 & 3: 采样每个动作节拍 (Beat) 的 Start / Mid / End 关键帧
-        beat_timings = scene.get("beat_timings") or []
-        sample_points = []
-        if beat_timings:
-            for b in beat_timings:
-                b_idx = b.get("beat_index", 0)
-                b_name = b.get("beat", f"B{b_idx + 1}")
-                b_s = b.get("start_frame") if b.get("start_frame") is not None else b.get("startFrame", 0)
-                b_e = b.get("end_frame") if b.get("end_frame") is not None else b.get("endFrame", dur)
-                b_start = start_f + max(2, int(b_s) + 3)
-                b_mid = start_f + int(b.get("mid_frame", (int(b_s) + int(b_e)) // 2))
-                b_end = start_f + min(dur - 3, max(4, int(b_e) - 3))
-                sample_points.append((f"B{b_idx+1}_{b_name}_Start", b_start, b_idx))
-                sample_points.append((f"B{b_idx+1}_{b_name}_Mid", b_mid, b_idx))
-                sample_points.append((f"B{b_idx+1}_{b_name}_End", b_end, b_idx))
-        else:
-            sample_points = [
-                ("Scene_Start", start_f + max(4, int(dur * 0.15)), 0),
-                ("Scene_Mid", start_f + int(dur * 0.50), 0),
-                ("Scene_End", start_f + min(dur - 6, int(dur * 0.85)), 0),
-            ]
-
-        beat_frames_map: Dict[int, List[Path]] = {}
-        scene_sampled_pngs: List[Path] = []
-        for tag, abs_frame, b_idx in sample_points:
-            safe_tag = tag.replace(":", "_").replace(" ", "_")
-            png_path = frames_dir / f"{sid}_{safe_tag}_f{abs_frame}.png"
+    for scene, start in planned_scenes:
+        sid = scene["id"]
+        schema = run_schema_qa_layer(scene, manifest)
+        scene_issues = list(schema["issues"])
+        frames, key_items, continuous_items, beat_frames = [], [], [], {}
+        for point in scene_frame_plan(scene, start):
+            png = frames_dir / point["filename"]
+            ok = True
             if render_frames:
-                print(f"   [📸] 抽样节拍关键帧: {sid} [{tag}] @ frame {abs_frame}")
-                ok = render_still_frame(remotion_dir, "TutorialVideo", props_path, abs_frame, png_path)
-                if not ok:
-                    err_msg = f"[{sid}] Render QA 失败: 关键帧 {tag} (frame={abs_frame}) 渲染失败或 PNG 无效！"
-                    render_failures.append(err_msg)
-                    scene_issues.append(err_msg)
-            beat_frames_map.setdefault(b_idx, []).append(png_path)
-            scene_sampled_pngs.append(png_path)
-            contact_items.append({
-                "scene_id": sid,
-                "tag": tag,
-                "frame": abs_frame,
-                "image_path": str(png_path),
-            })
+                # Never allow a successful return code to recycle an old output.
+                if png.exists():
+                    png.unlink()
+                ok = render_still_frame(remotion_dir, "TutorialVideo", props_path, point["frame"], png)
+            if not ok or not verify_png_file(png):
+                issue = f"[{sid}] Render QA: 缺失或无效 PNG ({point['tag']}, f={point['frame']})"
+                render_failures.append(issue)
+                scene_issues.append(issue)
+            saved = {key: point[key] for key in ("kind", "tag", "frame", "beat_index")}
+            saved.update(image_path=str(png), sha256=file_sha256(png) if verify_png_file(png) else None)
+            frames.append(saved)
+            item = {"scene_id": sid, "tag": point["tag"], "frame": point["frame"], "image_path": str(png)}
+            if point["kind"] == "key":
+                key_items.append(item)
+                beat_frames.setdefault(point["beat_index"], []).append(png)
+            else:
+                continuous_items.append(item)
+        contact_items.extend(key_items)
+        strip = output_dir / f"continuous_{sid}.png"
+        if render_frames:
+            if strip.exists():
+                strip.unlink()
+            strip_ok = build_contact_sheet_image(continuous_items or key_items, strip, columns=3,
+                                                  title=f"Continuous Audit: {sid}")
+        else:
+            strip_ok = verify_png_file(strip)
+        if not strip_ok or not verify_png_file(strip):
+            issue = f"[{sid}] Render QA: 连续帧条带合成失败: {strip}"
+            render_failures.append(issue)
+            scene_issues.append(issue)
+        else:
+            artifact_hashes[strip.name] = file_sha256(strip)
 
-        # 对每一个动作节拍交界处 (Beat Boundary) 抽样连续过渡帧 (-3f, 0f, +3f)
-        continuous_items: List[Dict[str, Any]] = []
-        if len(beat_timings) >= 2 and render_frames:
-            for b_i in range(len(beat_timings) - 1):
-                b_e = (
-                    beat_timings[b_i].get("end_frame")
-                    if beat_timings[b_i].get("end_frame") is not None
-                    else beat_timings[b_i].get("endFrame", dur // 2)
-                )
-                boundary_frame = start_f + int(b_e)
-                for delta in (-3, 0, 3):
-                    cf = max(start_f + 2, min(end_f - 2, boundary_frame + delta))
-                    c_png = frames_dir / f"{sid}_b{b_i+1}_to_b{b_i+2}_f{cf}.png"
-                    ok = render_still_frame(remotion_dir, "TutorialVideo", props_path, cf, c_png)
-                    if not ok:
-                        err_msg = f"[{sid}] Render QA 失败: 节拍过渡连续帧 (frame={cf}) 渲染失败！"
-                        render_failures.append(err_msg)
-                        scene_issues.append(err_msg)
-                    continuous_items.append({
-                        "scene_id": sid,
-                        "tag": f"B{b_i+1}->B{b_i+2}({delta:+d}f)",
-                        "frame": cf,
-                        "image_path": str(c_png),
-                    })
-            if continuous_items:
-                strip_path = output_dir / f"continuous_{sid}.png"
-                build_contact_sheet_image(
-                    continuous_items,
-                    strip_path,
-                    columns=3,
-                    title=f"Beat Transition Continuous Audit: {sid}",
-                )
-
-        # Layer 3: Motion QA (按每个节拍检查是否存在 Frozen Beat)
         motion_diffs = []
-        for b_idx, p_list in beat_frames_map.items():
-            if len(p_list) >= 2:
-                d_score = compute_image_diff_score(p_list[0], p_list[-1])
-                if d_score >= 0:
-                    motion_diffs.append({"beat_index": b_idx, "diff_pct": d_score})
-                    if d_score < 0.25:
-                        scene_issues.append(
-                            f"[{sid}] Motion QA 失败: Beat #{b_idx + 1} 画面静止 (Frozen Beat: 首尾帧差异仅 {d_score}%)！"
-                        )
+        choreography = scene.get("visual_choreography") or []
+        for beat_index, paths in beat_frames.items():
+            diff = compute_image_diff_score(paths[0], paths[-1])
+            action = choreography[beat_index].get("action") if beat_index < len(choreography) else None
+            intentional_hold = action == "hold"
+            motion_diffs.append({"beat_index": beat_index, "diff_pct": diff,
+                                 "intentional_hold": intentional_hold})
+            if not isinstance(diff, (float, int)) or not math.isfinite(diff) or diff < 0:
+                scene_issues.append(f"[{sid}] Motion QA: Beat #{beat_index + 1} PNG 比较失败")
+            elif diff < 0.25 and not intentional_hold:
+                scene_issues.append(f"[{sid}] Motion QA: Beat #{beat_index + 1} Frozen Beat ({diff}%)")
 
-        sig_hash = compute_scene_signature_hash(scene, registry_version, scene_sampled_pngs)
-        scene_signatures[sid] = sig_hash
-
+        try:
+            signature = compute_scene_signature_hash(scene, registry_version,
+                [Path(frame["image_path"]) for frame in frames], before)
+        except ValueError as exc:
+            signature = ""
+            render_failures.append(str(exc))
+            scene_issues.append(str(exc))
+        scene_signatures[sid] = signature
         all_issues.extend(scene_issues)
         scene_reports.append({
-            "scene_id": sid,
-            "scene_signature_hash": sig_hash,
-            "renderer_id": scene.get("renderer_id", ""),
-            "title": scene.get("title", ""),
-            "visual_intent": scene.get("visual_intent", ""),
-            "beats_count": len(scene.get("visual_choreography") or []),
-            "schema_qa": schema_qa["status"],
-            "motion_diffs": motion_diffs,
-            "issues": scene_issues,
-            "status": "PASS" if not scene_issues else "FAIL",
+            "scene_id": sid, "scene_signature_hash": signature,
+            "renderer_id": scene.get("renderer_id", ""), "title": scene.get("title", ""),
+            "visual_intent": scene.get("visual_intent", ""), "beats_count": len(choreography),
+            "schema_qa": schema["status"], "frames": frames, "motion_diffs": motion_diffs,
+            "issues": scene_issues, "status": "PASS" if not scene_issues else "FAIL",
         })
 
-        acc_frame = end_f
-
-    is_sample_mode = mode in ("hero-shot", "first-shot")
-    sheet_name = "first_shot_sheet.png" if is_sample_mode else "contact_sheet.png"
-    sheet_path = output_dir / sheet_name
-    sheet_ok = build_contact_sheet_image(
-        contact_items,
-        sheet_path,
-        columns=3,
-        title=f"repo-to-video v4.2 {'First/Hero Shot Approval' if is_sample_mode else 'Full Beat Contact Sheet'} ({props.get('repoName', '')})",
-    )
-    if is_sample_mode and sheet_ok:
-        alias_sheet = output_dir / "hero_shot_sheet.png"
-        if alias_sheet != sheet_path:
-            shutil.copy2(sheet_path, alias_sheet)
-
-    if render_frames and not sheet_ok:
-        render_failures.append(f"Contact Sheet 合成失败: {sheet_path}")
-        all_issues.append(f"Render QA 失败: Contact Sheet 未成功生成 ({sheet_path})")
-
-    # Layer 4: Hash-Bound Semantic QA
-    semantic_qa = generate_semantic_qa_artifacts(
-        scenes, scene_signatures, output_dir, sheet_path
-    )
-    all_issues.extend(semantic_qa["issues"])
-
-    if render_failures:
-        overall_status = "REJECTED_RENDER_FAILURE"
-    elif all_issues:
-        overall_status = "REJECTED_QA_ISSUES"
-    elif semantic_qa["status"] == "PENDING_AGENT_REVIEW":
-        overall_status = "PENDING_SEMANTIC_QA_REVIEW"
+    sheet_path = output_dir / ("contact_sheet.png" if scope == "full" else "first_shot_sheet.png")
+    if render_frames:
+        if sheet_path.exists():
+            sheet_path.unlink()
+        sheet_ok = build_contact_sheet_image(contact_items, sheet_path, columns=3,
+                                             title=f"repo-to-video v4.3 {scope} QA")
     else:
-        overall_status = "APPROVED"
+        sheet_ok = verify_png_file(sheet_path)
+    if not sheet_ok or not verify_png_file(sheet_path):
+        render_failures.append(f"Render QA: Contact Sheet 合成失败: {sheet_path}")
+    else:
+        artifact_hashes[sheet_path.name] = file_sha256(sheet_path)
+        if scope == "sample" and render_frames:
+            shutil.copy2(sheet_path, output_dir / "hero_shot_sheet.png")
+    all_issues.extend(issue for issue in render_failures if issue not in all_issues)
 
+    # Recheck after ALL rendering / frame reads, before binding human approvals.
+    after = compute_build_fingerprint(props_path, remotion_dir)
+    if canonical_json(after) != canonical_json(before):
+        reject("Build changed while rendering QA frames", "REJECTED_BUILD_CHANGED_DURING_QA")
+    # Also catch changes to earlier frames while later scenes were rendering.
+    for row in scene_reports:
+        for frame in row["frames"]:
+            if frame["sha256"] is not None and file_sha256(frame["image_path"]) != frame["sha256"]:
+                reject("Frame changed during QA", "REJECTED_STALE_QA_CACHE")
+    if not render_frames:
+        validate_qa_frame_cache(report_path, props_path, remotion_dir, mode, before)
+
+    semantic = generate_semantic_qa_artifacts(scenes, scene_signatures, output_dir, sheet_path,
+                                              build_fingerprint=before, scope=scope)
+    all_issues.extend(semantic["issues"])
+    if render_failures:
+        status = "REJECTED_RENDER_FAILURE"
+    elif all_issues:
+        status = "REJECTED_QA_ISSUES"
+    elif semantic["status"] != "PASS":
+        status = "PENDING_SEMANTIC_QA_REVIEW"
+    else:
+        status = "APPROVED"
     report = {
-        "version": "4.2",
-        "mode": mode,
-        "repo_name": props.get("repoName", ""),
-        "hero_scene_id": props.get("heroSceneId", ""),
-        "contact_sheet": str(sheet_path),
-        "overall_status": overall_status,
+        "version": "4.3", "mode": mode, "scope": scope,
+        "build_fingerprint": before, "qa_output_dir": str(output_dir),
+        "repo_name": props.get("repoName", ""), "hero_scene_id": props.get("heroSceneId", ""),
+        "contact_sheet": str(sheet_path), "artifact_hashes": artifact_hashes,
+        "overall_status": status,
         "layers": {
             "schema_qa": "PASS" if all(s["schema_qa"] == "PASS" for s in scene_reports) else "FAIL",
             "render_qa": "PASS" if not render_failures else "FAIL",
-            "motion_qa": "PASS" if not any("Motion QA" in i for i in all_issues) else "FAIL",
-            "semantic_qa": semantic_qa["status"],
+            "motion_qa": "PASS" if not any("Motion QA" in issue for issue in all_issues) else "FAIL",
+            "semantic_qa": semantic["status"],
         },
-        "semantic_qa_checklist": semantic_qa["checklist_path"],
-        "semantic_qa_review_md": semantic_qa["review_markdown_path"],
-        "issues_count": len(all_issues),
-        "issues": all_issues,
-        "scenes": scene_reports,
+        "semantic_qa_checklist": semantic["checklist_path"],
+        "semantic_qa_review_md": semantic["review_markdown_path"],
+        "issues_count": len(all_issues), "issues": all_issues, "scenes": scene_reports,
     }
-
-    report_path = output_dir / "visual_qa_report.json"
-    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    ws_report = props_path.parent / "visual_qa_report.json"
-    ws_report.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    print(f"\n[✓] Visual QA v4.2 ({mode}) 执行完毕! 综合状态: {overall_status}")
-    print(f"    - 四层状态: {json.dumps(report['layers'], ensure_ascii=False)}")
-    print(f"    - 审片报告: {report_path}")
-    print(f"    - Semantic QA 审片单: {semantic_qa['review_markdown_path']}")
-    if all_issues:
-        print("    - 阻断问题清单:")
-        for iss in all_issues:
-            print(f"      ✗ {iss}")
-
+    if canonical_json(compute_build_fingerprint(props_path, remotion_dir)) != canonical_json(before):
+        reject("Build changed before QA report publication", "REJECTED_BUILD_CHANGED_DURING_QA")
+    serialized = json.dumps(report, ensure_ascii=False, indent=2)
+    report_path.write_text(serialized, encoding="utf-8")
+    (props_path.parent / "visual_qa_report.json").write_text(serialized, encoding="utf-8")
+    print(f"Visual QA v4.3 ({scope}/{mode}): {status}; report: {report_path}")
     return report
 
 
 def main():
-    parser = argparse.ArgumentParser(description="repo-to-video v4.2 4-Layer Visual QA runner")
+    parser = argparse.ArgumentParser(description="repo-to-video v4.3 4-Layer Visual QA runner")
     parser.add_argument("--props", required=True, help="Path to build_props.json or build_props.first_shot.json")
     parser.add_argument("--output-dir", default="out/qa", help="Output directory for Contact Sheet & QA report")
+    parser.add_argument("--remotion-dir", help="Actual Remotion project used by both QA and final rendering")
     parser.add_argument("--mode", choices=["hero-shot", "first-shot", "full"], default="full", help="QA mode")
     parser.add_argument(
         "--no-render-frames",
         action="store_true",
-        help="Skip Remotion still rendering (run Schema QA & Semantic QA generation on existing frames)",
+        help="Reuse only frames verified against an existing identical-build QA report and per-file hashes",
     )
     parser.add_argument(
         "--allow-pending-semantic",
@@ -651,6 +694,7 @@ def main():
         output_dir=Path(args.output_dir),
         mode=args.mode,
         render_frames=not args.no_render_frames,
+        remotion_dir=Path(args.remotion_dir) if args.remotion_dir else None,
     )
 
     status = report.get("overall_status")

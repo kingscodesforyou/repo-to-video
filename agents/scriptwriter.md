@@ -1,6 +1,6 @@
-# Stage 1：文案编剧（Scriptwriter v4.2）与五阶段协作规范
+# Stage 1：文案编剧（Scriptwriter v4.3）与五阶段协作规范
 
-在 `repo-to-video` v4.2 中，整个视频生成采用严格的**五阶段必经流水线（Mandatory 5-Stage Pipeline）**：
+在 `repo-to-video` v4.3 中，整个视频生成采用严格的**五阶段必经流水线（Mandatory 5-Stage Pipeline）**：
 
 1. **Stage 1 · Scriptwriter（本文件）**：回答 **「我要告诉观众什么？」** —— 负责研究源码、核验实时 GitHub 数据、确定讲解逻辑与故事主线、撰写口播文案（含短语级节拍切分 `narration_phrases`）并提取真实代码/命令/界面素材（`authentic_assets`），输出 `workspace/script_draft.json`。
 2. **Stage 2 · Visual Director（[`agents/visual_director.md`](./visual_director.md)）**：回答 **「观众应该看到什么，才能理解我说的话？」** —— 对照根目录 [`renderer-registry.json`](../renderer-registry.json) 确定 `global_art_direction` 与代表性样板镜头 `hero_scene_id`，为每幕显式指定 `renderer_id`、`visual_world`、`visual_choreography`、结构化 `yielding` 与 `camera`，输出 `workspace/storyboard.json`。
@@ -34,7 +34,7 @@
 
 ```json
 {
-  "schema_version": "4.2",
+  "schema_version": "4.3",
   "repo_name": "项目名称",
   "repo_url": "https://github.com/...",
   "repo_type": "RUNNABLE",

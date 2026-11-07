@@ -86,14 +86,6 @@ ALLOWED_BEAT_KEYS: Set[str] = {
     "endFrame",
 }
 
-ALLOWED_YIELDING_RULE_KEYS: Set[str] = {
-    "target",
-    "opacity",
-    "scale",
-    "zOffset",
-    "blur",
-}
-
 FORBIDDEN_LEGACY_KEYS: Set[str] = {
     "type",
     "data",
@@ -113,17 +105,8 @@ def load_registry_manifest() -> Dict[str, Any]:
     """
     加载唯一数据源 renderer-registry.json（同时兼容 templates/src/registry/registry_manifest.json）
     """
-    root_dir = Path(__file__).parent.parent.resolve()
-    primary_path = root_dir / "renderer-registry.json"
-    secondary_path = root_dir / "templates" / "src" / "registry" / "registry_manifest.json"
-
-    if primary_path.exists():
-        return json.loads(primary_path.read_text(encoding="utf-8"))
-    if secondary_path.exists():
-        return json.loads(secondary_path.read_text(encoding="utf-8"))
-    raise FileNotFoundError(
-        f"Renderer Registry manifest not found at {primary_path} or {secondary_path}"
-    )
+    from sync_registry import sync_registry
+    return sync_registry(check=True)
 
 
 def build_renderers_lookup(manifest: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -224,7 +207,15 @@ def validate_storyboard_v4_2(storyboard_path: Path) -> Dict[str, Any]:
 
     from tts_generator import validate_and_locate_phrase_anchors
 
+    from animation_contract import validate_animation_scene
+
+    if len(scene_ids) != len(set(scene_ids)):
+        errors.append("Scene IDs must be unique.")
     for idx, scene in enumerate(scenes):
+        contract_errors = validate_animation_scene(scene, manifest)
+        if contract_errors:
+            errors.extend(f"Scene[{idx + 1}]: {error}" for error in contract_errors)
+            continue
         sid = scene.get("id") or f"scene_{idx + 1}"
         prefix = f"Scene[{idx + 1}:{sid}]"
 
@@ -360,36 +351,6 @@ def validate_storyboard_v4_2(storyboard_path: Path) -> Dict[str, Any]:
                         f"{b_prefix}.camera='{cam}' 不在受支持的相机运镜列表 {sorted(supported_cameras)} 中。"
                     )
 
-                yielding = beat.get("yielding")
-                if len(choreo) > 1 and not yielding:
-                    errors.append(
-                        f"{b_prefix} 缺少必填的 'yielding'（镜头让位指令）！多节拍镜头必须明确声明非焦点元素如何让位。"
-                    )
-                elif isinstance(yielding, list):
-                    for y_i, rule in enumerate(yielding):
-                        if not isinstance(rule, dict) or not (rule.get("target") or "").strip():
-                            errors.append(f"{b_prefix}.yielding[{y_i}] 必须是包含非空 'target' 的对象。")
-                            continue
-                        unknown_y = set(rule.keys()) - ALLOWED_YIELDING_RULE_KEYS
-                        if unknown_y:
-                            errors.append(f"{b_prefix}.yielding[{y_i}] 包含未知属性 {sorted(unknown_y)}。")
-                        if "opacity" in rule:
-                            op = rule["opacity"]
-                            if not isinstance(op, (int, float)) or op < 0 or op > 1:
-                                errors.append(f"{b_prefix}.yielding[{y_i}].opacity 必须在 [0.0, 1.0] 之间。")
-
-                payload = beat.get("payload")
-                if payload is not None:
-                    if not isinstance(payload, dict):
-                        errors.append(f"{b_prefix}.payload 必须是对象。")
-                    elif matched_renderer:
-                        allowed_payload_keys = set(matched_renderer.get("payloadSchema", []))
-                        invalid_p_keys = set(payload.keys()) - allowed_payload_keys
-                        if invalid_p_keys:
-                            errors.append(
-                                f"{b_prefix}.payload 包含组件 '{matched_renderer['id']}' 未消费的参数 {sorted(invalid_p_keys)}！"
-                                f"支持的参数为: {sorted(allowed_payload_keys)}"
-                            )
 
             # 6. 校验 phrase_anchor 与口播文本的严格匹配与单调顺序
             if narration:
@@ -495,37 +456,39 @@ def audit_storyboard_facts(profile: dict, storyboard_path: Path):
         print(f"[✓] 文案数字审查通过: 当前实时 Star 数为 {stars:,} ({stars_fmt})")
 
 
-def enforce_final_render_qa_gate(workspace_dir: Path, qa_dir: Path):
+def enforce_final_render_qa_gate(props_path: Path, workspace_dir: Path, qa_dir: Path):
     """
-    v4.2 最终成片渲染硬门禁：
-    必须存在 visual_qa_report.json 且 overall_status == 'APPROVED'，否则严禁导出最终 MP4！
+    v4.3 最终成片渲染硬门禁：
+    QA 报告必须与当前构建指纹完全绑定——全片 (full) 模式、四层全部 PASS、
+    逐场景五问布尔核验、帧证据与采样计划一致。过期 / 抽样 / 仅状态报告一律
+    REJECTED_STALE_QA_REPORT，严禁导出最终 MP4。
     """
+    from build_fingerprint import validate_final_qa_report
+    from visual_qa import resolve_remotion_workdir
+
     candidates = [qa_dir / "visual_qa_report.json", workspace_dir / "visual_qa_report.json"]
     report_path = next((p for p in candidates if p.exists()), None)
     if not report_path:
         print("\n" + "=" * 78)
         print("[✗] 交付门禁阻断: 未找到 visual_qa_report.json！")
-        print("    v4.2 严禁跳过四层视觉 QA 直接渲染最终成片。")
+        print("    v4.3 严禁跳过四层视觉 QA 直接渲染最终成片。")
         print("    请先运行: python scripts/visual_qa.py --props workspace/build_props.json --output-dir out/qa --mode full")
         print("=" * 78 + "\n")
         sys.exit(1)
 
-    report = json.loads(report_path.read_text(encoding="utf-8"))
-    status = report.get("overall_status")
-    if status != "APPROVED":
+    try:
+        validate_final_qa_report(report_path, props_path, resolve_remotion_workdir())
+    except ValueError as exc:
         print("\n" + "=" * 78)
-        print(f"[✗] 交付门禁阻断: 当前 Visual QA 状态为 '{status}' (必须为 'APPROVED')！")
+        print(f"[✗] 交付门禁阻断: {exc}")
         print(f"    报告路径: {report_path}")
-        print(f"    四层状态: {json.dumps(report.get('layers', {}), ensure_ascii=False)}")
-        if report.get("issues"):
-            print("    未解决阻断项:")
-            for iss in report["issues"]:
-                print(f"      - {iss}")
-        print("    请完成 Semantic QA 审片核验并修复所有 QA 问题后再执行最终成片渲染。")
+        print("    QA 证据必须绑定当前构建指纹（registry / renderer 源码 / props / 音频 / 配置）。")
+        print("    任何输入变更后请重新运行: python scripts/visual_qa.py --props ... --output-dir out/qa --mode full")
+        print("    并完成逐场景 Semantic QA 五问布尔核验后再执行最终成片渲染。")
         print("=" * 78 + "\n")
         sys.exit(1)
 
-    print(f"[✓] 最终成片交付门禁核验通过 (visual_qa_report.json overall_status == 'APPROVED')！")
+    print("[✓] 最终成片交付门禁核验通过：QA 报告与当前构建指纹完全绑定，四层全部 PASS！")
 
 
 def main():
@@ -647,7 +610,7 @@ def main():
     motion_plan_path.write_text(
         json.dumps(
             {
-                "version": "4.2",
+                "version": "4.3",
                 "hero_scene_id": hero_scene_id,
                 "scenes": motion_plan_entries,
             },
@@ -667,7 +630,7 @@ def main():
     }
 
     build_props = {
-        "schemaVersion": "4.2",
+        "schemaVersion": "4.3",
         "title": storyboard_data.get("video_title") or profile.get("readme_title", profile["name"]),
         "repoName": storyboard_data.get("repo_name") or profile["name"],
         "repoUrl": storyboard_data.get("repo_url") or profile.get("repo_path", ""),
@@ -742,7 +705,7 @@ def main():
 
     if args.render_final:
         print("\n=== [Final Delivery Gate] 核验 QA 门禁并渲染最终成片 out/video.mp4 ===")
-        enforce_final_render_qa_gate(workspace_dir, qa_dir)
+        enforce_final_render_qa_gate(props_path, workspace_dir, qa_dir)
         from visual_qa import resolve_remotion_workdir
         remotion_dir = resolve_remotion_workdir()
         final_mp4 = Path("out/video.mp4").resolve()

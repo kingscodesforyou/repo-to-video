@@ -1,22 +1,22 @@
-# `storyboard.json` 可执行视觉编排 Schema（v4.2 · Executable Visual Choreography 版）
+# `storyboard.json` 可执行视觉编排 Schema（v4.3 · Executable Visual Choreography 版）
 
-在 `repo-to-video` v4.2 中，分镜 Schema 是受 **根目录唯一数据源 [`renderer-registry.json`](../renderer-registry.json)、`build_video.py` 字段级白名单、结构化 `yielding` 校验门禁与 `tts_generator.py` 强制时间轴对齐** 约束的可执行契约。
+在 `repo-to-video` v4.3 中，分镜 Schema 是受 **根目录唯一数据源 [`renderer-registry.json`](../renderer-registry.json)、共享 [`animation-contract.schema.json`](../animation-contract.schema.json)（Python jsonschema 与 TS Ajv 双端同构校验）、`sync_registry.py --check` 镜像漂移门禁、`build_video.py` 字段级白名单、结构化 `yielding` 校验门禁与 `tts_generator.py` 强制时间轴对齐** 约束的可执行契约。
 
 ---
 
-## 一、 v4.2 六条强制校验规则（Schema Gates）
+## 一、 v4.3 六条强制校验规则（Schema Gates）
 
 1. **字段级白名单检查（彻底阻断新旧结构混用）**：
    - 严禁在 `scene` 中出现任何旧版模板或卡片字段（`type`、`data`、`stack_items`、`cards`、`pain_points`、`magic_points`、`raw_inputs`、`distilled_outputs`、`teacher_note`）。即便同时写了 `visual_choreography`，只要出现上述任一旧字段，构建立即报错终止。
 2. **显式 `renderer_id` 与唯一数据源 `renderer-registry.json` 校验**：
    - 每个镜头必须显式声明 `renderer_id`（如 `"particle_filter_v1"`、`"architecture_v1"`、`"dataflow_router_v1"`、`"timeline_state_v1"`、`"product_interface_v1"`、`"kinetic_thesis_v1"`，同时兼容分类别名 `"PhysicalSimulation"` 等）。
-   - 严禁省略 `renderer_id` 依赖启发式猜测路由；`visual_world.primary_object`、`visual_world.environment`、`beat.action`、`beat.camera` 与 `beat.payload` 必须在 [`renderer-registry.json`](../renderer-registry.json) 中真实支持。
+   - 严禁省略 `renderer_id` 依赖启发式猜测路由；`visual_world.primary_object`、`visual_world.environment`、`beat.action`、`beat.camera` 与 `beat.payload` 必须在 [`renderer-registry.json`](../renderer-registry.json) 中真实支持，且 `beat.payload` 逐字段通过共享 `animation-contract.schema.json` 的按动作 scoped schema 校验（required/optional 与 registry 声明由 `sync_registry.py` 强制一致）。
 3. **统一元素预算口径（`element_budget <= 4`）**：
    - 每个镜头同屏最多 **4 个主要视觉元素**：`1` 个 `primary_object` + 最多 `3` 个 `secondary_objects`（`len(secondary_objects) <= 3`）。
    - **集合体计入规则**：粒子系统或网络集合（`information_particles`、`signal_particles`、`network_nodes`、`request_packets`）内部的多个粒子实例作为单一集合体（`collective_group`）计为 **1 个整体元素**。
    - 画面文字批注 `text_overlays` 每个镜头最多 **2 条**。
 4. **结构化镜头让位（Structured `yielding` Array）**：
-   - 多节拍镜头的每个 `beat` 必须声明 `yielding`。推荐使用 v4.2 结构化数组格式，精确控制每个非焦点物体及背景网格（`background_grid`）的 `opacity`、`scale`、`zOffset` 与 `blur`：
+   - 多节拍镜头的每个 `beat` 必须声明**结构化** `yielding` 数组（v4.3 起旧版非数组让位直接拒绝），精确控制每个非焦点物体及背景网格（`background_grid`）的 `opacity`、`scale`、`zOffset` 与 `blur`：
      ```json
      "yielding": [
        { "target": "3d_filter_machine", "opacity": 0.25, "scale": 0.9, "zOffset": -60, "blur": 3.0 },
@@ -35,7 +35,7 @@
 
 ```jsonc
 {
-  "schema_version": "4.2",
+  "schema_version": "4.3",
   "repo_name": "mem0",
   "repo_url": "https://github.com/mem0ai/mem0",
   "repo_type": "RUNNABLE", // RUNNABLE | SKILL
@@ -50,14 +50,14 @@
     "max_element_budget": 4
   },
   "scenes": [
-    /* SceneV4_2[] */
+    /* SceneV4_3[] */
   ]
 }
 ```
 
 ---
 
-## 三、 单镜头完整示例 (`SceneV4_2`)
+## 三、 单镜头完整示例 (`SceneV4_3`)
 
 ```json
 {

@@ -182,6 +182,38 @@ def run_negative_regression_tests(manifest: dict) -> list:
             "new_hash": sig_v2,
         })
 
+    # Test 5 (v4.4): 2d_editorial 镜头使用 3D 环绕相机或非零 zOffset 必须被 2D QA 拦截
+    bad_scene_2d = {
+        "id": "neg_05_2d_tilt",
+        "renderer_id": "editorial_2d_v1",
+        "visual_mode": "2d_editorial",
+        "learning_objective": "零基础观众能够理解为什么 2D 镜头禁止三维倾斜。",
+        "visual_explanation": "使用 2D 概念卡片展示平面排版规则。",
+        "expected_understanding": "观众看到水平清晰的文字卡片而非倾斜卡片。",
+        "narration": "这一段测试 2D 镜头违规使用三维环绕运镜时必须被拦截。",
+        "visual_intent": "测试 2D QA 拦截三维倾斜",
+        "art_direction": {"accent_color": "#38BDF8", "style_3d": "editorial_flat_2d"},
+        "visual_world": {"primary_object": "concept_card_2d", "secondary_objects": ["step_board_2d"]},
+        "visual_choreography": [
+            {
+                "beat": "B1",
+                "phrase_anchor": "这一段测试",
+                "action": "typography",
+                "target": "concept_card_2d",
+                "payload": {"headline": "测试标题"},
+                "camera": "orbit_left",
+                "shot_scale": "medium",
+                "yielding": [{"target": "step_board_2d", "opacity": 0.4, "zOffset": -120}],
+            }
+        ],
+    }
+    r5 = run_schema_qa_layer(bad_scene_2d, manifest)
+    results.append({
+        "test": "reject_3d_tilt_and_zoffset_in_2d_editorial_mode",
+        "passed": r5["status"] == "FAIL",
+        "details": r5["issues"],
+    })
+
     return results
 
 
@@ -483,6 +515,21 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if (args.update_goldens or args.motion_tests) and not args.render:
         parser.error("--update-goldens and --motion-tests require --render")
+    if not args.browser_executable:
+        import os
+        chrome_candidates = [
+            Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+            Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
+            Path(os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")),
+            Path("/usr/bin/google-chrome"),
+            Path("/usr/bin/chromium"),
+            Path("/usr/bin/chromium-browser"),
+            Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+        ]
+        for candidate in chrome_candidates:
+            if candidate.is_file():
+                args.browser_executable = str(candidate)
+                break
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
     output_dir = args.output_dir.resolve()

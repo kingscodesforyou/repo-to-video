@@ -1,8 +1,8 @@
 {
-  "schema_version": "4.3",
+  "schema_version": "4.4",
   "repo_name": "mem0-filter-benchmark",
   "repo_type": "RUNNABLE",
-  "video_title": "Benchmark 01: AI 信息过滤与多面体结晶机制",
+  "video_title": "Benchmark 01: AI 信息过滤与多面体结晶机制 (3D Spatial)",
   "hero_scene_id": "eval_filter_01",
   "chapters": ["AI 信息过滤机制"],
   "global_art_direction": {
@@ -16,6 +16,10 @@
     {
       "id": "eval_filter_01",
       "renderer_id": "particle_filter_v1",
+      "visual_mode": "3d_spatial",
+      "learning_objective": "让零基础观众直观理解系统如何从杂乱闲聊中筛除噪音、提炼高纯度长期记忆",
+      "visual_explanation": "用三维粒子流进入涡轮分离器、灰色废料下坠、蓝色有效信号凝聚成二十面体晶体的物理过程代替抽象术语",
+      "expected_understanding": "观众明白系统不会死记硬背每一句废话，而是先过滤寒暄噪音，再把关键偏好结晶保存",
       "chapter": "AI 信息过滤机制",
       "title": "高噪对话流物理分流与记忆结晶",
       "continuity_group": "filter_lab_benchmark",

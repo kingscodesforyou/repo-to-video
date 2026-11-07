@@ -3,5 +3,7 @@ __pycache__/
 node_modules/
 workspace/
 out/
+.remotion/
+templates/public/audio/
 .DS_Store
 .venv/

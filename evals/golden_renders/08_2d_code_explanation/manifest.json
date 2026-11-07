@@ -1,0 +1,222 @@
+{
+  "format_version": 1,
+  "case": "08_2d_code_explanation",
+  "samples": [
+    {
+      "frame": 0,
+      "file": "frames/frame_000000.png",
+      "labels": [
+        "scene_01/beat_01/start"
+      ]
+    },
+    {
+      "frame": 20,
+      "file": "frames/frame_000020.png",
+      "labels": [
+        "scene_01/beat_01/mid"
+      ]
+    },
+    {
+      "frame": 39,
+      "file": "frames/frame_000039.png",
+      "labels": [
+        "scene_01/beat_01/end",
+        "scene_01/beat_02/boundary-1"
+      ]
+    },
+    {
+      "frame": 40,
+      "file": "frames/frame_000040.png",
+      "labels": [
+        "scene_01/beat_02/start",
+        "scene_01/beat_02/boundary+0"
+      ]
+    },
+    {
+      "frame": 41,
+      "file": "frames/frame_000041.png",
+      "labels": [
+        "scene_01/beat_02/boundary+1"
+      ]
+    },
+    {
+      "frame": 60,
+      "file": "frames/frame_000060.png",
+      "labels": [
+        "scene_01/beat_02/mid"
+      ]
+    },
+    {
+      "frame": 79,
+      "file": "frames/frame_000079.png",
+      "labels": [
+        "scene_01/beat_02/end"
+      ]
+    }
+  ],
+  "contract": {
+    "props_sha256": "1098b90c25b75b37b0c382fb8bfb96660602ad31ef6c09245658c8da021849ec",
+    "render_settings": {
+      "fps": 30,
+      "frames_per_beat": 40,
+      "width": 1920,
+      "height": 1080,
+      "scale": 0.5,
+      "concurrency": 2,
+      "seed": 430,
+      "codec": "h264",
+      "crf": 18,
+      "pixel_format": "yuv420p",
+      "image_format": "png",
+      "hardware_acceleration": "disable",
+      "device_scale_factor": 1,
+      "offthread_video_cache_bytes": 67108864,
+      "media_cache_bytes": 134217728,
+      "gl": "swangle",
+      "bundle_cache": false,
+      "audio": false,
+      "composition_id": "TutorialVideo",
+      "timing_policy": "synthetic-visual-only; beat end inclusive; no TTS/alignment claims",
+      "sampling_policy": "beat start/mid/end and internal boundaries -1/0/+1; deduplicated"
+    },
+    "comparison_tolerance": {
+      "pixel_threshold": 8,
+      "max_mean_absolute_error": 0.35,
+      "max_changed_pixel_ratio": 0.001
+    },
+    "environment": {
+      "packages": {
+        "remotion": "4.0.541",
+        "@remotion/cli": "4.0.541",
+        "@remotion/bundler": "4.0.541",
+        "@remotion/renderer": "4.0.541",
+        "react": "19.3.1",
+        "react-dom": "19.3.1"
+      },
+      "chrome": "Chrome/153.0.8010.54",
+      "chrome_revision": "@ab3ecba863fd7852cc9b0fe5736187e19ed52a1c",
+      "chrome_js_version": "15.3.76.13",
+      "node": "v24.12.0",
+      "platform": "win32",
+      "os_release": "10.0.26100",
+      "arch": "x64",
+      "locale": "en-US",
+      "timezone": "UTC",
+      "device_scale_factor": 1,
+      "random_policy": "EVAL_SEED=430; deterministic Remotion random only; ambient random/time rejected",
+      "cache_policy": "fresh bundle and browser profile; no webpack persistent cache"
+    }
+  },
+  "provenance": {
+    "source_sha256": "101a808c0564de18294befd5825b29c9db4243fda2aae56604fa2cb41e3bd7ab",
+    "files": [
+      {
+        "file": "src/components/Background.tsx",
+        "sha256": "890bee2c25ddde721c64b986d7c80bc8ac79f8254fd092f7116087ccf9ddc8f7"
+      },
+      {
+        "file": "src/components/BeforeAfterScene.tsx",
+        "sha256": "a064f16087e1fec21589bfc4aec30765703586a7980a5e2f594424f1e76fb745"
+      },
+      {
+        "file": "src/components/ChapterBar.tsx",
+        "sha256": "fa7f7b127a4c92ec7fc37590a974b83f3b8eeca9ec39126e669004163c57e554"
+      },
+      {
+        "file": "src/components/ChoreographedScene.tsx",
+        "sha256": "c363243361cac05b50611917460a1ee6fea5eb0c76df6d96776dbc61a4c7e7a2"
+      },
+      {
+        "file": "src/components/CodeWalkthroughScene.tsx",
+        "sha256": "5332b33b288f65fe51ae2d331befb8e761a677dbbd6119d3bd53c447e61bc0fb"
+      },
+      {
+        "file": "src/components/Editorial2DCanvas.tsx",
+        "sha256": "ef0c666ecd02aa10f16094195fcd0bbd11dc122cbb9acda7017a1391d4a851fc"
+      },
+      {
+        "file": "src/components/primitives/Primitives.tsx",
+        "sha256": "5e43544d1084f48e4ed881b56275f7cd9c750b09e8c00d7a601abf622d0ec16d"
+      },
+      {
+        "file": "src/components/Scenes.tsx",
+        "sha256": "61adef3c17dfea85a9a95c0e219cac9a0b4b9d13478f1f9da3168cdd6cc5bb5a"
+      },
+      {
+        "file": "src/components/ShotcraftScenes.tsx",
+        "sha256": "0e4619cf78106ce3a351aca4be78d6a1c2b9f111c2472a770c85684191f3bb5d"
+      },
+      {
+        "file": "src/components/Subtitles.tsx",
+        "sha256": "b8aa14ca29c58b338ef9306dfcde42c272f1c7098e3c0fb068c1ba2d8453f06d"
+      },
+      {
+        "file": "src/components/TerminalScene.tsx",
+        "sha256": "4d36ab7e6d1c56b6d23752d4f718d15d898fe07bc00788f3db687f27966871de"
+      },
+      {
+        "file": "src/components/ThreeHybridCanvas.tsx",
+        "sha256": "7e619bf7c5fd4dc911a9a8b651431ff35dbaaaee78978821dc8fb6c31016b7a5"
+      },
+      {
+        "file": "src/components/TitleCard.tsx",
+        "sha256": "4ff6d40b9d80f8686daa7cdce07f897502ca3f3c1a73ab2b5501907de8b62b52"
+      },
+      {
+        "file": "src/compositions/TutorialVideo.tsx",
+        "sha256": "2183aaf847db7252de8fd90c0701bf137c00bac36f4b13a0e3129d41765b582f"
+      },
+      {
+        "file": "src/index.ts",
+        "sha256": "32185b5fe29233ed658013191cf02a1ba3181fe15dd4c43848136a344887ff0f"
+      },
+      {
+        "file": "src/registry/animation_contract.schema.json",
+        "sha256": "1ab6a86837d695cc50028148f5a8f99ea9ab489b1e619010ec6cff6d30d1dbb2"
+      },
+      {
+        "file": "src/registry/AnimationContract.ts",
+        "sha256": "07bd9c63073d809d98d0b86deef65045460819fd660b7b53c8a1c787b05a0fe2"
+      },
+      {
+        "file": "src/registry/MotionPrimitives.ts",
+        "sha256": "fdb5c360bc2ef0e4925e8b34d2ce4d5fb92c55fa2d7e98931fe31d2e975653a6"
+      },
+      {
+        "file": "src/registry/registry_manifest.json",
+        "sha256": "40459f912060134d5d2d687b480f5b0f02260cb232607ea138cd2559d1201555"
+      },
+      {
+        "file": "src/registry/RendererRegistry.tsx",
+        "sha256": "988442a1f1110952b7b48331d34e7ac5105a13f8f2340a9767d00b0b054ffd67"
+      },
+      {
+        "file": "src/Root.tsx",
+        "sha256": "1a4bd817ffd3164097822b32773e7ef5df17b21e604e0d849e72f6a779b1e766"
+      },
+      {
+        "file": "src/theme.ts",
+        "sha256": "5154d31114514aa5615dff4a587826d607d9efba18e03f64e0bcfc9eff38a3e5"
+      },
+      {
+        "file": "package.json",
+        "sha256": "7778d067fc08b8be4a57ae80490bacaaf6496018c174faf1764c23f78c9e4e96"
+      },
+      {
+        "file": "package-lock.json",
+        "sha256": "41e6f75ec1d5661dec204738fe7532587aa62ee0c77979294f0b42f87be5305c"
+      },
+      {
+        "file": "tsconfig.json",
+        "sha256": "bd016554691bd5d850d6155ac1bda19e203fd4a3ef2a5848f039041843ed4f5b"
+      }
+    ]
+  },
+  "created_at": "2026-11-07T12:47:31.853681+00:00",
+  "approval": {
+    "status": "APPROVED",
+    "reviewer": "Visual Director & QA Auditor (v4.4)",
+    "reviewed_at": "2026-11-07T12:50:00Z"
+  },
+  "review_scope": "Image regression baseline only; not semantic or audiovisual QA approval"
+}

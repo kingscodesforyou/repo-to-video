@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "4.3",
-  "title": "Benchmark 02: 多层软件架构空间拆解与合体",
+  "schemaVersion": "4.4",
+  "title": "Benchmark 02: 3D 机械结构拆解与多层架构合体 (3D Spatial)",
   "repoName": "hybrid-storage-benchmark",
   "repoUrl": "",
   "repoType": "RUNNABLE",
@@ -21,6 +21,10 @@
     {
       "id": "eval_arch_01",
       "renderer_id": "architecture_v1",
+      "visual_mode": "3d_spatial",
+      "learning_objective": "理解为什么系统要把存储拆成三层不同分工的模组，以及它们如何协同工作",
+      "visual_explanation": "通过三维立体结构沿 Z 轴爆炸拉开、单层聚焦扫描与回弹合体，展示三层模组的空间层次与耦合关系",
+      "expected_understanding": "观众看懂底层负责记流水账、中层负责按意思检索、顶层负责理清关系，三者合体才能既准又可追溯",
       "chapter": "多层软件架构拆解",
       "title": "三层异构存储模组 Z 轴拆解",
       "continuity_group": "arch_chamber_benchmark",

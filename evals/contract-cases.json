@@ -30,5 +30,12 @@
   {"name":"null payload", "path":["visual_choreography",0,"payload"],"value":null,"valid":false},
   {"name":"invalid direction", "path":["visual_choreography",0,"payload","direction"],"value":"diagonal","valid":false},
   {"name":"left direction", "path":["visual_choreography",0,"payload","direction"],"value":"left","valid":true},
-  {"name":"scene filename traversal", "path":["id"],"value":"../../outside","valid":false}
+  {"name":"scene filename traversal", "path":["id"],"value":"../../outside","valid":false},
+  {"name":"missing visual_mode", "path":["visual_mode"],"delete":true,"valid":false},
+  {"name":"invalid visual_mode", "path":["visual_mode"],"value":"3d_fake_tilt","valid":false},
+  {"name":"2d_editorial incompatible with 3d particle renderer", "path":["visual_mode"],"value":"2d_editorial","valid":false},
+  {"name":"missing learning_objective", "path":["learning_objective"],"delete":true,"valid":false},
+  {"name":"too short learning_objective", "path":["learning_objective"],"value":"太短","valid":false},
+  {"name":"missing visual_explanation", "path":["visual_explanation"],"delete":true,"valid":false},
+  {"name":"missing expected_understanding", "path":["expected_understanding"],"delete":true,"valid":false}
 ]

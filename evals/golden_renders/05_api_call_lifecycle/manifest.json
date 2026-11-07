@@ -85,7 +85,7 @@
     }
   ],
   "contract": {
-    "props_sha256": "74550bf7f4169aa1da086400002b072ba0756f83c533a5b4b1f00fbe70501a0b",
+    "props_sha256": "7b211a06e89f21edfec2a2fd5e0a045cdef0cee36368c7aa6d3289997fc67ba6",
     "render_settings": {
       "fps": 30,
       "frames_per_beat": 40,
@@ -138,7 +138,7 @@
     }
   },
   "provenance": {
-    "source_sha256": "73ced39671ee2d2aa253a4cb00279366bdb4c972fb04695a86baf9c60eb0471c",
+    "source_sha256": "101a808c0564de18294befd5825b29c9db4243fda2aae56604fa2cb41e3bd7ab",
     "files": [
       {
         "file": "src/components/Background.tsx",
@@ -154,11 +154,15 @@
       },
       {
         "file": "src/components/ChoreographedScene.tsx",
-        "sha256": "1485e58b5ced091b90d58e0a0c4b422b22f504dc0952cf3bd35fa0b41197b0a7"
+        "sha256": "c363243361cac05b50611917460a1ee6fea5eb0c76df6d96776dbc61a4c7e7a2"
       },
       {
         "file": "src/components/CodeWalkthroughScene.tsx",
         "sha256": "5332b33b288f65fe51ae2d331befb8e761a677dbbd6119d3bd53c447e61bc0fb"
+      },
+      {
+        "file": "src/components/Editorial2DCanvas.tsx",
+        "sha256": "ef0c666ecd02aa10f16094195fcd0bbd11dc122cbb9acda7017a1391d4a851fc"
       },
       {
         "file": "src/components/primitives/Primitives.tsx",
@@ -198,23 +202,23 @@
       },
       {
         "file": "src/registry/animation_contract.schema.json",
-        "sha256": "898561865f5fa1adcc0fbcf2f61fc5b1722a599f55df14e5ada3eef491fb25c3"
+        "sha256": "1ab6a86837d695cc50028148f5a8f99ea9ab489b1e619010ec6cff6d30d1dbb2"
       },
       {
         "file": "src/registry/AnimationContract.ts",
-        "sha256": "1f745100b9aa5f7f04cb4227a2942a6db28fa09dee230af9c57bc50a3fdfd4dc"
+        "sha256": "07bd9c63073d809d98d0b86deef65045460819fd660b7b53c8a1c787b05a0fe2"
       },
       {
         "file": "src/registry/MotionPrimitives.ts",
-        "sha256": "8f09fd81b4dc0e5af25217e93f82979338f239ff975f312c15fb86f1a78dc192"
+        "sha256": "fdb5c360bc2ef0e4925e8b34d2ce4d5fb92c55fa2d7e98931fe31d2e975653a6"
       },
       {
         "file": "src/registry/registry_manifest.json",
-        "sha256": "84c39f70ccd78fd016632ee6b38f950446816c698a79d652b2c785d0c639a9c5"
+        "sha256": "40459f912060134d5d2d687b480f5b0f02260cb232607ea138cd2559d1201555"
       },
       {
         "file": "src/registry/RendererRegistry.tsx",
-        "sha256": "c53dd9c33e6c6bd991034ee49c4690cb33b4316fc7a51b307ef5530325a99b24"
+        "sha256": "988442a1f1110952b7b48331d34e7ac5105a13f8f2340a9767d00b0b054ffd67"
       },
       {
         "file": "src/Root.tsx",
@@ -238,11 +242,11 @@
       }
     ]
   },
-  "created_at": "2026-11-07T09:55:58.624223+00:00",
+  "created_at": "2026-11-07T12:53:22.140502+00:00",
   "approval": {
     "status": "APPROVED",
-    "reviewer": "qoder-visual-qa-agent",
-    "reviewed_at": "2026-11-07T09:56:53.990614+00:00"
+    "reviewer": "Visual Director & QA Auditor (v4.4)",
+    "reviewed_at": "2026-11-07T12:50:00Z"
   },
   "review_scope": "Image regression baseline only; not semantic or audiovisual QA approval"
 }

@@ -1,0 +1,150 @@
+{
+  "schema_version": "4.4",
+  "video_title": "Benchmark 06: 2D 纯文字概念与因果对比教学",
+  "repo_name": "pedagogy-lab/concept-explainer",
+  "repo_url": "https://github.com/pedagogy-lab/concept-explainer",
+  "repo_type": "Tutorial",
+  "hero_scene_id": "scene_01",
+  "chapters": ["为什么需要幂等性？"],
+  "global_art_direction": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "flat_editorial",
+    "camera_philosophy": "orthographic_2d_pedagogy",
+    "max_element_budget": 3
+  },
+  "scenes": [
+    {
+      "id": "scene_01",
+      "chapter": "为什么需要幂等性？",
+      "title": "幂等性（Idempotency）零基础概念拆解",
+      "renderer_id": "editorial_2d_v1",
+      "visual_mode": "2d_editorial",
+      "learning_objective": "零基础观众能够用电梯按钮类比解释什么是幂等性（Idempotency），并区分非幂等重复扣款与幂等唯一凭证的处理结果。",
+      "visual_explanation": "采用纯正视 2D 平面教学画布，先通过概念卡片建立电梯按钮类比与边界，再用因果推导链展示网络抖动重试为什么会导致重复扣款，最后用双栏对比矩阵直观对比无幂等锁与有幂等请求号的结果差异。",
+      "expected_understanding": "观众明白幂等性就是同一个请求带着相同凭证执行一次和执行多次，对系统状态产生的影响完全相同。",
+      "narration": "当你在手机上点击付款却遇到网络转圈，连续多按了三次支付按钮，为什么银行没有扣你三次钱？这就要靠幂等性（Idempotency，也就是同一个操作执行一次和执行多次结果完全相同的性质）。它就像电梯楼层按钮，你按一下是亮灯等电梯，着急连按十下也还是等同一趟电梯；但这个类比有个边界，电梯按钮不记录是谁按的，而真实接口必须靠唯一请求单号来识别是不是同一次点击。如果没有幂等保护，网络重试就会触发三次独立扣款；加上幂等单号校验后，系统看到重复单号会直接返回第一次的成功收据。",
+      "visual_intent": "使用正视平面概念卡、因果关系图与双栏对比矩阵讲透幂等性的定义、原因与效果。",
+      "art_direction": {
+        "style": "editorial_motion",
+        "lighting": "flat_editorial",
+        "material": "matte_paper",
+        "accent_color": "#38BDF8",
+        "element_budget": 3
+      },
+      "visual_world": {
+        "environment": "editorial_canvas",
+        "primary_object": "concept_card_2d",
+        "secondary_objects": [
+          "cause_effect_diagram_2d",
+          "comparison_matrix_2d"
+        ],
+        "object_labels": {
+          "concept_card_2d": "幂等性 (Idempotency) 概念定义卡",
+          "cause_effect_diagram_2d": "弱网重试重复扣款因果链",
+          "comparison_matrix_2d": "无幂等保护 vs 唯一请求单号对比"
+        }
+      },
+      "visual_choreography": [
+        {
+          "beat": "电梯按钮类比与幂等定义",
+          "phrase_anchor": "当你在手机上点击付款却遇到网络转圈",
+          "action": "typography",
+          "target": "concept_card_2d",
+          "payload": {
+            "headline": "幂等性 (Idempotency) = 一次执行与多次重试结果一致",
+            "subheadline": "生活类比：连按十次电梯按钮，依然只召唤同一趟电梯（类比边界：真实接口需绑定唯一请求单号）",
+            "key_points": [
+              "生活直觉：无论着急连按多少次电梯按钮，电梯系统只登记一次停靠指令",
+              "核心概念：相同的请求参数与唯一凭证重复提交时，系统状态只改变一次",
+              "类比边界：电梯按钮不区分按压者身份，后端接口必须校验 Idempotency-Key"
+            ]
+          },
+          "description": "正视 2D 概念卡逐行揭示幂等性的通俗定义、电梯按钮类比与类比边界，文字保持 100% 水平清晰。",
+          "camera": "steady_hold",
+          "shot_scale": "wide",
+          "yielding": [
+            {
+              "target": "cause_effect_diagram_2d",
+              "opacity": 0.25,
+              "scale": 0.96,
+              "blur": 0,
+              "zOffset": 0
+            },
+            {
+              "target": "comparison_matrix_2d",
+              "opacity": 0.25,
+              "scale": 0.96,
+              "blur": 0,
+              "zOffset": 0
+            }
+          ]
+        },
+        {
+          "beat": "网络重试导致重复扣款的因果链",
+          "phrase_anchor": "如果没有幂等保护，网络重试就会触发三次独立扣款",
+          "action": "cause_effect",
+          "target": "cause_effect_diagram_2d",
+          "payload": {
+            "headline": "为什么弱网环境容易触发重复扣款？",
+            "cause_label": "原因：响应包在弱网途中超时丢失，客户端自动发起三次重试",
+            "mechanism_label": "机制缺陷：服务端未校验唯一请求单号，把每次重试都当成新订单执行扣款 SQL",
+            "effect_label": "结果：同一笔购买被连续扣款三次，产生三张重复账单"
+          },
+          "description": "平面因果关系图展示弱网超时与缺少凭证校验如何一步步引发重复扣款。",
+          "camera": "track_horizontal",
+          "shot_scale": "medium",
+          "yielding": [
+            {
+              "target": "concept_card_2d",
+              "opacity": 0.3,
+              "scale": 0.95,
+              "blur": 1,
+              "zOffset": 0
+            }
+          ]
+        },
+        {
+          "beat": "无幂等锁与幂等单号校验的前后对比",
+          "phrase_anchor": "加上幂等单号校验后，系统看到重复单号会直接返回第一次的成功收据",
+          "action": "comparison",
+          "target": "comparison_matrix_2d",
+          "payload": {
+            "headline": "接口处理机制前后对比",
+            "before_label": "未加幂等保护 (Non-Idempotent)",
+            "after_label": "启用幂等单号 (Idempotency-Key)",
+            "before_items": [
+              "点击 3 次 -> 执行 3 次扣款 SQL",
+              "账户被扣 ¥300，产生 3 张重复账单",
+              "需要人工对账退款，用户体验极差"
+            ],
+            "after_items": [
+              "第 1 次到达 -> 登记单号并扣款 ¥100",
+              "第 2、3 次重试 -> 命中单号记录，直接返回原收据",
+              "无论重试多少次，账单与余额永远准确一致"
+            ]
+          },
+          "description": "左右双栏对比矩阵清晰对照无幂等保护与启用幂等单号的处理差异。",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "yielding": [
+            {
+              "target": "concept_card_2d",
+              "opacity": 0.25,
+              "scale": 0.95,
+              "blur": 1,
+              "zOffset": 0
+            },
+            {
+              "target": "cause_effect_diagram_2d",
+              "opacity": 0.25,
+              "scale": 0.95,
+              "blur": 1,
+              "zOffset": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

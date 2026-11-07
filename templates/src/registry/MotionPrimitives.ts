@@ -150,6 +150,14 @@ export const IMPLEMENTATIONS: Readonly<Record<string, Implementation>> = Object.
   editorial_focus: (p, _payload, s) => ({ ...s, scale: lerp(s.scale, 1.08, p), highlight: lerp(s.highlight, 1, p) }),
   metric_counter: (p, payload, s) => ({ ...s, metric: lerp(s.metric, number(Number.parseFloat(String(payload.metric_value)), 0), p) }),
   chapter_transition: (p, _payload, s) => ({ ...s, opacity: s.opacity * (1 - p), position: [s.position[0], s.position[1] - 80 * p, s.position[2]] }),
+  typography: (p, payload, s, b) => ({ ...reveal(p, payload, s, b), highlight: lerp(s.highlight, 1, p), rotateZ: 0 }),
+  infographic: (p, payload, s, b) => ({ ...reveal(p, payload, s, b), metric: lerp(s.metric, number(Number.parseFloat(String(payload.metric_value)), 100), p), rotateZ: 0 }),
+  flowchart: (p, _payload, s) => ({ ...s, route: lerp(s.route, 1, p), connection: lerp(s.connection, 1, p), reveal: lerp(s.reveal, 1, p), rotateZ: 0 }),
+  timeline: (p, _payload, s) => ({ ...s, anchor: lerp(s.anchor, 1, p), lineage: lerp(s.lineage, 1, p), reveal: lerp(s.reveal, 1, p), rotateZ: 0 }),
+  comparison: (p, payload, s) => ({ ...s, splitRatio: lerp(s.splitRatio, number(payload.split_ratio, 0.5), p), highlight: lerp(s.highlight, 1, p), rotateZ: 0 }),
+  code_explanation: (p, payload, s) => ({ ...s, highlight: lerp(s.highlight, 1, p), lines: payload.lines || s.lines, reveal: lerp(s.reveal, 1, p), rotateZ: 0 }),
+  step_by_step: (p, payload, s) => ({ ...s, scan: lerp(s.scan, 1, p), commandIndex: number(payload.active_step, s.commandIndex), reveal: lerp(s.reveal, 1, p), rotateZ: 0 }),
+  cause_effect: (p, _payload, s) => ({ ...s, connection: lerp(s.connection, 1, p), highlight: lerp(s.highlight, 1, p), reveal: lerp(s.reveal, 1, p), rotateZ: 0 }),
 });
 export function evaluateMotion(action: string, progress: number, payload: MotionPayload = {}, previous?: MotionPrimitiveKinematics, binding: MotionBinding = { objectId: "" }): MotionPrimitiveKinematics {
   if (!Object.prototype.hasOwnProperty.call(IMPLEMENTATIONS, action)) throw new Error(`Unknown motion action: ${action}`);

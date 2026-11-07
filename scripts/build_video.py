@@ -30,6 +30,10 @@ ALLOWED_TOP_KEYS: Set[str] = {
     "hero_scene_id",
     "chapters",
     "global_art_direction",
+    "teaching_profile",
+    "learning_objective",
+    "teaching_qa_passed",
+    "teaching_qa_score",
     "motion_designer_verified",
     "scenes",
 }
@@ -37,6 +41,11 @@ ALLOWED_TOP_KEYS: Set[str] = {
 ALLOWED_SCENE_KEYS: Set[str] = {
     "id",
     "renderer_id",
+    "visual_mode",
+    "learning_objective",
+    "visual_explanation",
+    "expected_understanding",
+    "pedagogical_step",
     "chapter",
     "title",
     "continuity_group",
@@ -389,6 +398,7 @@ def validate_storyboard_v4_2(storyboard_path: Path) -> Dict[str, Any]:
 
 # 保持向后兼容函数别名
 validate_storyboard_v4_1 = validate_storyboard_v4_2
+validate_storyboard_v4_4 = validate_storyboard_v4_2
 
 
 def select_hero_scene(scenes: List[Dict[str, Any]], explicit_hero_id: str = None) -> Dict[str, Any]:

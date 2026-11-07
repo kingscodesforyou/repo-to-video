@@ -168,3 +168,23 @@ test("scene resolver validates every beat action even when no object matches", (
   const scene = { beats: [{ action: "teleport", target: "o" }], beatWindows: [{ start: 0, end: 30 }], activeBeatIdx: 0, beatProgress: 1, fps: 30 };
   assert.throws(() => createSceneMotionResolver(scene as any, registry), /Unknown motion action/);
 });
+
+test("v4.4 2D editorial primitives always keep zero 3D rotation and zero Z translation", () => {
+  const actions2D: Array<[string, Record<string, unknown>]> = [
+    ["typography", { headline: "幂等性概念定义" }],
+    ["infographic", { headline: "吞吐量对比", metrics: [{ label: "QPS", value: "100k" }] }],
+    ["flowchart", { nodes: [{ id: "a", label: "Req" }, { id: "b", label: "Cache" }] }],
+    ["timeline", { events: [{ time: "T0", title: "Init" }] }],
+    ["comparison", { left_column: { title: "Before", points: ["A"] }, right_column: { title: "After", points: ["B"] } }],
+    ["code_explanation", { code_lines: [{ line_number: 1, code: "return True", annotation: "放行" }] }],
+    ["step_by_step", { steps: [{ title: "Step 1", detail: "Check token" }] }],
+    ["cause_effect", { cause_effect_pairs: [{ cause: "Timeout", effect: "Retry" }] }],
+  ];
+  for (const [action, payload] of actions2D) {
+    for (const p of [0, 0.5, 1]) {
+      const state = evaluateMotion(action, p, payload, undefined, binding());
+      assert.equal(state.position[2], 0, `${action} at p=${p} must keep Z=0`);
+      assert.equal(state.rotateZ, 0, `${action} at p=${p} must keep rotateZ=0`);
+    }
+  }
+});

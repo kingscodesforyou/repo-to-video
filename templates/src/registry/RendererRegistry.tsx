@@ -11,6 +11,7 @@ import {
   MechanicalRotor3D,
   SpatialTopologyNetwork3D,
 } from "../components/ThreeHybridCanvas";
+import { Editorial2DRenderer } from "../components/Editorial2DCanvas";
 import registryManifest from "./registry_manifest.json";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -110,7 +111,8 @@ export interface SceneRenderer {
     | "DataFlow"
     | "ProductInterface"
     | "SystemArchitecture"
-    | "KineticTypography";
+    | "KineticTypography"
+    | "Editorial2D";
   supportedActions: string[];
   supportedObjects: string[];
   supportedCameras: string[];
@@ -155,6 +157,14 @@ const BUILTIN_OBJECT_LABELS: Record<string, string> = {
   authentic_terminal_bench: "CLI 实机运行工作台",
   authentic_ui_showcase: "产品交互界面实测",
   editorial_thesis_monolith: "核心技术命题碑",
+  concept_card_2d: "核心概念白话解析卡",
+  infographic_board_2d: "2D 结构化信息图板",
+  flowchart_canvas_2d: "2D 正交教学流程图",
+  timeline_track_2d: "2D 水平演进时间轴",
+  comparison_matrix_2d: "2D 前后对比矩阵",
+  code_explainer_2d: "2D 源码逐行精讲视口",
+  step_board_2d: "2D 循序渐进步骤拆解板",
+  cause_effect_diagram_2d: "2D 因果关系推导图",
   background_grid: "空间基准网格",
 };
 
@@ -224,8 +234,10 @@ function motionObjectId(world: VisualWorldSpec, types: string[], fallback: strin
 export function createYieldStyleResolver(
   activeBeat: ChoreographyBeat,
   beatProgress: number,
-  labelsMap?: Record<string, string>
+  labelsMap?: Record<string, string>,
+  visualMode?: "2d_editorial" | "3d_spatial" | "hybrid" | string
 ) {
+  const is2D = visualMode === "2d_editorial";
   return (objectId: string, objectLabel?: string): React.CSSProperties => {
     const isBackgroundGrid = objectId === "background_grid";
     const isFocalTarget = isTargetMatched(objectId, activeBeat.target);
@@ -248,24 +260,28 @@ export function createYieldStyleResolver(
           typeof matchedRule.opacity === "number" ? matchedRule.opacity : isBackgroundGrid ? 0.18 : 0.32;
         const targetScale =
           typeof matchedRule.scale === "number" ? matchedRule.scale : isBackgroundGrid ? 1.0 : 0.94;
-        const targetZ =
-          typeof matchedRule.zOffset === "number" ? matchedRule.zOffset : isBackgroundGrid ? 0 : -36;
+        const targetZ = is2D
+          ? 0
+          : typeof matchedRule.zOffset === "number"
+          ? matchedRule.zOffset
+          : isBackgroundGrid
+          ? 0
+          : -36;
         const targetBlur =
           typeof matchedRule.blur === "number" ? matchedRule.blur : isBackgroundGrid ? 0 : 1.5;
 
         const baseOpacity = isBackgroundGrid ? 1.0 : 0.82;
+        const scaleVal = interpolate(t, [0, 1], [1, targetScale], clamp).toFixed(3);
         return {
           opacity: Number(interpolate(t, [0, 1], [baseOpacity, targetOpacity], clamp).toFixed(3)),
           filter: targetBlur > 0 ? `blur(${(targetBlur * t).toFixed(1)}px)` : "none",
-          transform:
-            targetZ !== 0 || targetScale !== 1
-              ? `translateZ(${(targetZ * t).toFixed(1)}px) scale(${interpolate(
-                  t,
-                  [0, 1],
-                  [1, targetScale],
-                  clamp
-                ).toFixed(3)})`
-              : undefined,
+          transform: is2D
+            ? targetScale !== 1
+              ? `scale(${scaleVal})`
+              : undefined
+            : targetZ !== 0 || targetScale !== 1
+            ? `translateZ(${(targetZ * t).toFixed(1)}px) scale(${scaleVal})`
+            : undefined,
         };
       }
     }
@@ -1654,6 +1670,9 @@ const COMPONENT_IMPLEMENTATIONS: Record<string, React.FC<StageProps>> = {
   kinetic_thesis_v1: KineticTypographyRenderer,
   KineticTypography: KineticTypographyRenderer,
   KineticTypographyStage: KineticTypographyRenderer,
+  editorial_2d_v1: Editorial2DRenderer,
+  Editorial2D: Editorial2DRenderer,
+  Editorial2DRenderer: Editorial2DRenderer,
 };
 
 export const SCENE_RENDERER_REGISTRY: Map<string, SceneRenderer> = new Map();

@@ -1,0 +1,134 @@
+{
+  "version": "4.4.0",
+  "base_passing_script": {
+    "schema_version": "4.4",
+    "repo_name": "pedagogy-lab/gateway-limiter",
+    "teaching_profile": {
+      "target_audience": "zero_programming_beginner",
+      "teacher_persona": "master_science_teacher",
+      "target_speaking_rate_cpm": [180, 220],
+      "six_step_pedagogy": [
+        "problem",
+        "analogy",
+        "concept",
+        "mechanism",
+        "application",
+        "transfer"
+      ]
+    },
+    "learning_objective": "零基础观众能够用景区检票口发号机的类比解释什么是令牌桶限流（Token Bucket），并说清请求进入时的令牌扣减、补充与拒绝流程。",
+    "prerequisite_knowledge": [
+      "知道网站或手机应用背后有一台服务器在处理用户的点击请求",
+      "不需要任何网络协议或高并发编程基础"
+    ],
+    "core_question": "当双十一零点几十万人同时点击下单时，为什么系统既能放行正常抢购高峰，又不会被瞬间涌入的流量冲垮？",
+    "analogy": {
+      "everyday_analogy": "景区入口处定时吐出纸质通行证的自动发号箱",
+      "mapping": "发号箱每秒钟固定往箱子里放一百张通行证，箱子最多存五百张；游客必须先从箱子里拿到一张通行证才能进园，拿不到就只能在门外稍等。",
+      "boundary": "景区纸质通行证需要人工回收，而计算机内存里的令牌桶不需要物理发放纸片，而是通过时间戳差值乘以速率，在每次请求到达时实时算出当前桶里还剩多少可用额度。"
+    },
+    "concept_steps": [
+      {
+        "step_number": 1,
+        "pedagogical_stage": "problem",
+        "title": "提出问题：突发流量如何冲垮服务器？",
+        "narration": "当双十一零点几十万人同时点击下单时，如果让所有点击毫无节制地直接冲进数据库，服务器内存会在一秒钟内耗尽，导致所有人都看到白屏报错。",
+        "estimated_duration_seconds": 20,
+        "plain_explanation": "毫无节制的突发点击会瞬间耗尽服务器内存并导致全站瘫痪。"
+      },
+      {
+        "step_number": 2,
+        "pedagogical_stage": "analogy",
+        "title": "生活类比：景区入口的自动通行证发号箱",
+        "narration": "这就好比热门景区门口放了一个容量固定的自动发号箱，机器按固定速度往里放票，既有存量缓冲短时高峰，又限制了长期平均进园速度。",
+        "estimated_duration_seconds": 19,
+        "plain_explanation": "用定时放票且有容量上限的景区发号箱类比流量缓冲与限速机制。"
+      },
+      {
+        "step_number": 3,
+        "pedagogical_stage": "concept",
+        "title": "基本概念：什么是令牌桶算法？",
+        "narration": "在软件工程里，这种先按恒定速度往虚拟桶里补充通行配额、每个请求必须领走一枚配额才能继续执行的方法，就叫做令牌桶算法。不过要注意类比边界，计算机并不需要物理印票，而是靠时间差实时计算余量。",
+        "estimated_duration_seconds": 28,
+        "plain_explanation": "先用白话解释带容量上限的配额桶，再给出令牌桶名称与类比边界。"
+      },
+      {
+        "step_number": 4,
+        "pedagogical_stage": "mechanism",
+        "title": "工作原理：惰性计算与原子扣减四步闭环",
+        "narration": "当一个新请求到达时，程序会先读取当前时间戳和上次结算时间戳，用时间差乘以补充速率算出这段时间新生成的令牌数，并和桶容量上限取最小值；如果当前剩余令牌大于等于一枚，就扣减一枚令牌并放行请求，否则直接拦截。",
+        "estimated_duration_seconds": 33,
+        "plain_explanation": "每次请求到达时按时间差惰性结算新增令牌，够一枚就扣减放行，不够就温和拒绝。",
+        "input_state": "输入当前请求到达时间戳、桶当前剩余令牌数以及上次结算时间戳。",
+        "process_detail": "用当前时间减去上次结算时间再乘以速率补充令牌，不超过桶容量上限；若剩余令牌至少有一枚则扣减一枚。",
+        "why_designed_this_way": "采用按需惰性结算而不是后台每秒跑死循环定时器，能彻底省掉空闲时的处理器开销。",
+        "output_state": "返回允许通行标志或返回状态码提醒客户端稍后重试。"
+      },
+      {
+        "step_number": 5,
+        "pedagogical_stage": "application",
+        "title": "实际应用：门禁校验器中的真实配额拦截代码",
+        "narration": "在项目的契约校验与网关入口源码中，短短几行判断逻辑就能在请求真正进入昂贵的渲染或数据库查询之前，把超额或违规请求当场拦在门外。",
+        "estimated_duration_seconds": 20,
+        "plain_explanation": "结合仓库真实源码展示如何在入口函数中第一时间完成校验与拦截。",
+        "authentic_code_reference": "scripts/animation_contract.py::validate_animation_scene"
+      },
+      {
+        "step_number": 6,
+        "pedagogical_stage": "transfer",
+        "title": "总结迁移：从电商防刷到人工智能接口配额控制",
+        "narration": "掌握了固定速率补充加上容量上限缓冲的规律后，你不仅能看懂电商抢购防刷，也能立刻明白人工智能接口为什么会设置每分钟调用额度上限了。",
+        "estimated_duration_seconds": 20,
+        "plain_explanation": "将令牌桶原理迁移到人工智能接口限流与日常高并发保护场景。"
+      }
+    ],
+    "key_terms": [
+      {
+        "term": "令牌桶",
+        "plain_first_explanation": "一种先往固定容量的虚拟桶里按恒定速度放入通行许可，请求必须拿到许可才能被处理的流量控制方法",
+        "full_expansion": "Token Bucket（令牌桶流量控制算法）",
+        "explained_before_jargon": true
+      }
+    ],
+    "understanding_check": {
+      "questions": [
+        {
+          "question": "如果令牌桶容量上限是一百枚、每秒补充十枚，桶处于满载状态时突然同时涌入一百二十个请求，会发生什么？",
+          "expected_answer": "前一百个请求会立刻领走桶里攒好的一百枚令牌顺利通过，多出来的二十个请求因为桶已空会被温和拦截，随后系统继续按每秒十个的速度放行新请求。"
+        }
+      ],
+      "takeaway": "令牌桶通过固定补充速率限制长期平均流量，同时利用桶的存量上限优雅吸收短时突发高峰。",
+      "transfer_scenarios": [
+        "电商秒杀活动入口防刷限流",
+        "大语言模型接口每分钟调用配额控制"
+      ]
+    }
+  },
+  "test_suites": [
+    {
+      "id": "term_explanation_test",
+      "category": "1. 专业术语解释测试",
+      "description": "验证缩写词未展开或用术语解释术语时必须触发一票否决或扣分拦截",
+      "expect_passed": false
+    },
+    {
+      "id": "everyday_analogy_test",
+      "category": "2. 生活类比测试",
+      "description": "验证缺少类比适用边界（analogy.boundary）时必须触发一票否决",
+      "expect_passed": false
+    },
+    {
+      "id": "complex_mechanism_breakdown_test",
+      "category": "3. 复杂原理解构测试",
+      "description": "验证工作原理步骤（mechanism）缺少输入/处理/设计原因/输出四要素时必须被扣分或拦截",
+      "expect_passed": false
+    },
+    {
+      "id": "zero_background_comprehension_test",
+      "category": "4. 零基础理解测试",
+      "description": "验证完整遵循六步教学法、通俗解释与动态语速的教案能够获得 >= 85 分并顺利通过",
+      "expect_passed": true,
+      "min_score": 85
+    }
+  ]
+}

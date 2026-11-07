@@ -1,0 +1,106 @@
+{
+  "schema_version": "4.4",
+  "video_title": "Benchmark 08: 2D 代码逐行解释（正视无倾斜）",
+  "repo_name": "pedagogy-lab/code-walkthrough",
+  "repo_url": "https://github.com/pedagogy-lab/code-walkthrough",
+  "repo_type": "Library / SDK",
+  "hero_scene_id": "scene_01",
+  "chapters": ["源码逐行精讲"],
+  "global_art_direction": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "flat_editorial",
+    "camera_philosophy": "orthographic_2d_pedagogy",
+    "max_element_budget": 3
+  },
+  "scenes": [
+    {
+      "id": "scene_01",
+      "chapter": "源码逐行精讲",
+      "title": "validate_animation_scene 核心校验函数逐行拆解",
+      "renderer_id": "editorial_2d_v1",
+      "visual_mode": "2d_editorial",
+      "learning_objective": "零基础观众能够逐行读懂 `scripts/animation_contract.py` 中的 `validate_animation_scene` 入口逻辑，明白为什么必须在渲染前拦截非法 `visual_mode` 与未知动作。",
+      "visual_explanation": "采用 100% 正视无倾斜的 2D 代码讲解器展示真实源码行，第一拍使用聚光灯逐行高亮关键判断语句与右侧中文教学批注，第二拍用步骤板总结输入参数、校验规则与返回的错误列表。",
+      "expected_understanding": "观众看懂每一行代码如何守住渲染契约门禁，明白先做静态校验能避免带着错误配置启动昂贵的视频渲染。",
+      "narration": "如果分镜配置里写错了参数，怎么在启动漫长的视频渲染之前就一秒钟抓出错误？我们直接打开项目里的 `scripts/animation_contract.py` 文件，逐行看懂 `validate_animation_scene` 这个门禁函数。你可以把它想象成高铁进站口的安检闸机，乘客还没上车前就先核对车票和身份证是否匹配；但这个类比有个边界，车站闸机只看证件真伪，而代码契约校验器还会深入检查每一个动画节拍的相机角度和参数范围。第一拍我们正视阅读这五段核心源码，看它如何先读取视觉模式、再核对渲染器白名单。第二拍我们把这五步防线总结成清晰的输入输出清单。",
+      "visual_intent": "以正交无透视畸变的 2D 代码视口逐行高亮并批注真实 Python 源码。",
+      "art_direction": {
+        "style": "editorial_motion",
+        "lighting": "flat_editorial",
+        "material": "matte_paper",
+        "accent_color": "#60A5FA",
+        "element_budget": 3
+      },
+      "visual_world": {
+        "environment": "authentic_developer_workspace",
+        "primary_object": "code_explainer_2d",
+        "secondary_objects": [
+          "step_board_2d"
+        ],
+        "object_labels": {
+          "code_explainer_2d": "scripts/animation_contract.py 正视代码视口",
+          "step_board_2d": "契约门禁四步拆解看板"
+        },
+        "authentic_assets": {
+          "filename": "scripts/animation_contract.py",
+          "code_snippet": "def validate_animation_scene(scene: dict, manifest: dict) -> list[str]:\n    visual_mode = scene.get('visual_mode')\n    renderer = renderers.get(scene.get('renderer_id'))\n    if visual_mode not in renderer.get('visualModes', []):\n        errors.append('visual_mode is not supported by renderer')\n    return errors",
+          "highlight_lines": [1, 2, 3, 4, 5]
+        }
+      },
+      "visual_choreography": [
+        {
+          "beat": "正视源码逐行高亮与教学批注",
+          "phrase_anchor": "第一拍我们正视阅读这五段核心源码，看它如何先读取视觉模式、再核对渲染器白名单",
+          "action": "code_explanation",
+          "target": "code_explainer_2d",
+          "payload": {
+            "headline": "scripts/animation_contract.py :: validate_animation_scene",
+            "lines": [1, 2, 3, 4, 5],
+            "annotation": "正视逐行拆解：先读取 visual_mode，再核对渲染器支持的模式白名单，不匹配则立即记录错误并阻断构建"
+          },
+          "description": "正视 2D 代码讲解器逐行点亮 5 行核心代码与右侧中文批注，代码行水平锐利、零透视变形。",
+          "camera": "steady_hold",
+          "shot_scale": "wide",
+          "yielding": [
+            {
+              "target": "step_board_2d",
+              "opacity": 0.25,
+              "scale": 0.96,
+              "blur": 0,
+              "zOffset": 0
+            }
+          ]
+        },
+        {
+          "beat": "代码执行输入输出与防线总结",
+          "phrase_anchor": "第二拍我们把这五步防线总结成清晰的输入输出清单",
+          "action": "step_by_step",
+          "target": "step_board_2d",
+          "payload": {
+            "headline": "validate_animation_scene 契约防线拆解",
+            "active_step": 3,
+            "steps": [
+              "输入状态 (Input State)：传入待检验的 Scene 字典与 renderer-registry.json 规范清单",
+              "处理细节 (Process Detail)：依次校验必填教学字段、visual_mode 兼容性与禁止的 3D 环绕相机",
+              "设计原因 (Why Designed This Way)：在毫秒级静态检查阶段拦截错误，避免浪费算力渲染废片",
+              "输出状态 (Output State)：返回空列表 [] 代表契约 100% 合规，非空列表则精准定位违规字段路径"
+            ]
+          },
+          "description": "右侧步骤板归纳代码段对应的输入、处理、设计原因与输出状态。",
+          "camera": "close_up",
+          "shot_scale": "medium",
+          "yielding": [
+            {
+              "target": "code_explainer_2d",
+              "opacity": 0.3,
+              "scale": 0.96,
+              "blur": 1,
+              "zOffset": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 {
-  "schema_version": "4.3",
+  "schema_version": "4.4",
   "repo_name": "agent-skill-router-benchmark",
   "repo_type": "SKILL",
-  "video_title": "Benchmark 03: Agent / Skill 多工具调度与融合工作流",
+  "video_title": "Benchmark 03: Agent / Skill 多工具调度与三维拓扑汇聚 (3D Spatial)",
   "hero_scene_id": "eval_agent_01",
   "chapters": ["Agent Skill 调度工作流"],
   "global_art_direction": {
@@ -16,6 +16,10 @@
     {
       "id": "eval_agent_01",
       "renderer_id": "dataflow_router_v1",
+      "visual_mode": "3d_spatial",
+      "learning_objective": "理解智能体中枢如何把一个复杂任务拆派给多个专业工具并行处理并汇总答案",
+      "visual_explanation": "通过三维空间网络中的脉冲分发、多通道进度并发推进与棱镜节点聚拢，展示多工具协同过程",
+      "expected_understanding": "观众明白智能体不是单打独斗，而是像总调度室一样同时指挥多个专业工具并合成最终结论",
       "chapter": "Agent Skill 调度工作流",
       "title": "Agent 核心分发与多 Skill 并发汇聚",
       "continuity_group": "agent_workflow_benchmark",

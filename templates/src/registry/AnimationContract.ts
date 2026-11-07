@@ -22,7 +22,33 @@ export function validateAnimationScene(scene: any): string[] {
   const errors: string[] = [];
   const renderer = renderers.get(scene.renderer_id);
   if (!renderer) return [`Unregistered renderer: ${scene.renderer_id}`];
+  const visualMode = scene.visual_mode;
+  const supportedModes: string[] = (renderer as any).visualModes || [];
+  if (supportedModes.length > 0 && !supportedModes.includes(visualMode)) {
+    errors.push(`Renderer ${renderer.id} does not support visual_mode ${visualMode}`);
+  }
+  const forbidden2DCameras = new Set<string>(
+    ((manifest as any).supported_visual_modes?.["2d_editorial"]?.forbidden_cameras as string[]) || [
+      "orbit_left",
+      "orbit_right",
+      "isometric_tilt",
+      "top_down_overview",
+    ]
+  );
   const world = scene.visual_world;
+  if (visualMode === "2d_editorial") {
+    const artStyle = scene.art_direction?.style;
+    if (["mechanism_3d", "premium_3d_editorial", "spatial_25d"].includes(artStyle)) {
+      errors.push(`2d_editorial scene forbids 3D art_direction.style ${artStyle}`);
+    }
+  } else if (visualMode === "hybrid") {
+    const has2DLayer =
+      (Array.isArray(scene.text_overlays) && scene.text_overlays.length > 0) ||
+      Boolean(world.object_labels && Object.keys(world.object_labels).length > 0);
+    if (!has2DLayer) {
+      errors.push("hybrid scene requires at least one 2D information layer (text_overlays or object_labels)");
+    }
+  }
   const objects: string[] = [objectId(world.primary_object), ...world.secondary_objects.map(objectId)];
   if (new Set(objects).size !== objects.length) errors.push("Scene object IDs must be unique");
   for (const object of objects) {
@@ -38,6 +64,9 @@ export function validateAnimationScene(scene: any): string[] {
     const prefix = `visual_choreography[${index}]`;
     if (!objects.includes(beat.target)) errors.push(`${prefix}: target is not a scene object`);
     if (!renderer.supportedCameras.includes(beat.camera)) errors.push(`${prefix}: unsupported camera`);
+    if (visualMode === "2d_editorial" && forbidden2DCameras.has(beat.camera)) {
+      errors.push(`${prefix}: 2d_editorial scene forbids 3D tilt camera ${beat.camera}`);
+    }
     if (beat.camera_config?.lookAt !== undefined && !objects.includes(beat.camera_config.lookAt)) {
       errors.push(`${prefix}: lookAt is not a scene object`);
     }
@@ -47,6 +76,9 @@ export function validateAnimationScene(scene: any): string[] {
       if (![...objects, "background_grid", "*", "non_focal"].includes(rule.target)) errors.push(`${prefix}: unknown yielding target`);
       if (targets.has(rule.target)) errors.push(`${prefix}: duplicate yielding target`);
       targets.add(rule.target);
+      if (visualMode === "2d_editorial" && rule.zOffset !== undefined && rule.zOffset !== 0) {
+        errors.push(`${prefix}: 2d_editorial scene forbids non-zero zOffset in yielding`);
+      }
     }
     const validatePayload = payloadValidators.get(beat.action);
     if (!validatePayload || !renderer.supportedActions.includes(beat.action)) {

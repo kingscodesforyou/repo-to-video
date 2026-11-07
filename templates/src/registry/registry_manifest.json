@@ -1,5 +1,31 @@
 {
-  "registry_version": "4.3.0",
+  "registry_version": "4.4.0",
+  "supported_visual_modes": {
+    "2d_editorial": {
+      "description": "正视平面教学构图：文字与图表严格水平、零三维倾斜、零透视形变，支持平面平移、缩放、遮罩揭示与元素重组",
+      "allow_3d_tilt": false,
+      "allow_perspective": false,
+      "forbidden_cameras": [
+        "orbit_left",
+        "orbit_right",
+        "isometric_tilt",
+        "top_down_overview"
+      ]
+    },
+    "3d_spatial": {
+      "description": "三维空间教学构图：仅在机械结构、物理运动、粒子分流、三维拓扑网络、立体结构拆解与形态变化提供明确教学价值时使用",
+      "allow_3d_tilt": true,
+      "allow_perspective": true,
+      "forbidden_cameras": []
+    },
+    "hybrid": {
+      "description": "混合教学构图：3D 空间主体（机械/粒子/拓扑）+ 2D 正视信息层（正交水平标签、指标与原理解释，绝不随 3D 主体倾斜）",
+      "allow_3d_tilt": true,
+      "allow_perspective": true,
+      "orthogonal_2d_overlay": true,
+      "forbidden_cameras": []
+    }
+  },
   "element_budget_policy": {
     "max_total_major_elements": 4,
     "max_primary_objects": 1,
@@ -436,6 +462,78 @@
         20
       ],
       "category": "TypographyMonolith"
+    },
+    "concept_card_2d": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
+    },
+    "infographic_board_2d": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
+    },
+    "flowchart_canvas_2d": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
+    },
+    "timeline_track_2d": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
+    },
+    "comparison_matrix_2d": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
+    },
+    "code_explainer_2d": {
+      "slot": "left_wide",
+      "coords": [
+        -180,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
+    },
+    "step_board_2d": {
+      "slot": "right",
+      "coords": [
+        220,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
+    },
+    "cause_effect_diagram_2d": {
+      "slot": "center",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "category": "Editorial2D"
     }
   },
   "motion_primitives": {
@@ -1188,6 +1286,267 @@
         "type": "object",
         "additionalProperties": false
       }
+    },
+    "typography": {
+      "category": "editorial_2d",
+      "required_payload": [
+        "headline"
+      ],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "cause_label",
+        "easing",
+        "edges",
+        "effect_label",
+        "key_points",
+        "lines",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "nodes",
+        "split_ratio",
+        "steps",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload",
+        "required": [
+          "headline"
+        ]
+      }
+    },
+    "infographic": {
+      "category": "editorial_2d",
+      "required_payload": [],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "cause_label",
+        "easing",
+        "edges",
+        "effect_label",
+        "headline",
+        "key_points",
+        "lines",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "nodes",
+        "split_ratio",
+        "steps",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload"
+      }
+    },
+    "flowchart": {
+      "category": "editorial_2d",
+      "required_payload": [
+        "nodes"
+      ],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "cause_label",
+        "easing",
+        "edges",
+        "effect_label",
+        "headline",
+        "key_points",
+        "lines",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "split_ratio",
+        "steps",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload",
+        "required": [
+          "nodes"
+        ]
+      }
+    },
+    "timeline": {
+      "category": "editorial_2d",
+      "required_payload": [],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "cause_label",
+        "easing",
+        "edges",
+        "effect_label",
+        "headline",
+        "key_points",
+        "lines",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "nodes",
+        "split_ratio",
+        "steps",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload"
+      }
+    },
+    "comparison": {
+      "category": "editorial_2d",
+      "required_payload": [],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "cause_label",
+        "easing",
+        "edges",
+        "effect_label",
+        "headline",
+        "key_points",
+        "lines",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "nodes",
+        "split_ratio",
+        "steps",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload"
+      }
+    },
+    "code_explanation": {
+      "category": "editorial_2d",
+      "required_payload": [
+        "lines"
+      ],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "cause_label",
+        "easing",
+        "edges",
+        "effect_label",
+        "headline",
+        "key_points",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "nodes",
+        "split_ratio",
+        "steps",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload",
+        "required": [
+          "lines"
+        ]
+      }
+    },
+    "step_by_step": {
+      "category": "editorial_2d",
+      "required_payload": [
+        "steps"
+      ],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "cause_label",
+        "easing",
+        "edges",
+        "effect_label",
+        "headline",
+        "key_points",
+        "lines",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "nodes",
+        "split_ratio",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload",
+        "required": [
+          "steps"
+        ]
+      }
+    },
+    "cause_effect": {
+      "category": "editorial_2d",
+      "required_payload": [
+        "cause_label",
+        "effect_label"
+      ],
+      "optional_payload": [
+        "active_step",
+        "after_items",
+        "after_label",
+        "annotation",
+        "before_items",
+        "before_label",
+        "easing",
+        "edges",
+        "headline",
+        "key_points",
+        "lines",
+        "mechanism_label",
+        "metric_unit",
+        "metric_value",
+        "nodes",
+        "split_ratio",
+        "steps",
+        "subheadline",
+        "timestamps"
+      ],
+      "payload_schema": {
+        "$ref": "#/$defs/editorial_2d_payload",
+        "required": [
+          "cause_label",
+          "effect_label"
+        ]
+      }
     }
   },
   "renderers": [
@@ -1196,10 +1555,14 @@
       "aliases": [
         "PhysicalSimulation"
       ],
-      "version": "4.3.0",
+      "version": "4.4.0",
       "component": "PhysicalSimulationRenderer",
       "name": "3D 粒子过滤与多面体结晶仿真渲染器",
       "category": "PhysicalSimulation",
+      "visualModes": [
+        "3d_spatial",
+        "hybrid"
+      ],
       "renderTech": [
         "ThreeJS",
         "SVG",
@@ -1257,10 +1620,14 @@
       "aliases": [
         "MechanicalStructure"
       ],
-      "version": "4.3.0",
+      "version": "4.4.0",
       "component": "MechanicalStructureRenderer",
       "name": "3D 机械与多层系统架构拆解渲染器",
       "category": "MechanicalStructure",
+      "visualModes": [
+        "3d_spatial",
+        "hybrid"
+      ],
       "renderTech": [
         "ThreeJS",
         "SVG",
@@ -1314,10 +1681,14 @@
       "aliases": [
         "DataFlow"
       ],
-      "version": "4.3.0",
+      "version": "4.4.0",
       "component": "DataFlowRenderer",
       "name": "多路数据流、API 通信与三维空间拓扑渲染器",
       "category": "DataFlow",
+      "visualModes": [
+        "3d_spatial",
+        "hybrid"
+      ],
       "renderTech": [
         "SVG",
         "ThreeJS",
@@ -1385,10 +1756,15 @@
       "aliases": [
         "SystemArchitecture"
       ],
-      "version": "4.3.0",
+      "version": "4.4.0",
       "component": "SystemArchitectureRenderer",
       "name": "时序状态演进与空间负载对比渲染器",
       "category": "SystemArchitecture",
+      "visualModes": [
+        "2d_editorial",
+        "3d_spatial",
+        "hybrid"
+      ],
       "renderTech": [
         "SVG",
         "Remotion+CSS",
@@ -1439,10 +1815,14 @@
       "aliases": [
         "ProductInterface"
       ],
-      "version": "4.3.0",
+      "version": "4.4.0",
       "component": "ProductInterfaceRenderer",
       "name": "真实代码、终端实操与产品界面演示渲染器",
       "category": "ProductInterface",
+      "visualModes": [
+        "2d_editorial",
+        "hybrid"
+      ],
       "renderTech": [
         "ScreenRecording",
         "Remotion+CSS",
@@ -1491,10 +1871,13 @@
       "aliases": [
         "KineticTypography"
       ],
-      "version": "4.3.0",
+      "version": "4.4.0",
       "component": "KineticTypographyRenderer",
       "name": "高级编辑动态排版与核心命题揭示渲染器",
       "category": "KineticTypography",
+      "visualModes": [
+        "2d_editorial"
+      ],
       "renderTech": [
         "Remotion+CSS",
         "SVG"
@@ -1527,6 +1910,95 @@
         "subheadline",
         "metric_value",
         "metric_unit",
+        "axiom_number"
+      ]
+    },
+    {
+      "id": "editorial_2d_v1",
+      "aliases": [
+        "Editorial2D"
+      ],
+      "version": "4.4.0",
+      "component": "Editorial2DRenderer",
+      "name": "2D 平面教学图解、流程图、代码精讲与因果推导渲染器",
+      "category": "Editorial2D",
+      "visualModes": [
+        "2d_editorial"
+      ],
+      "renderTech": [
+        "Remotion+CSS",
+        "SVG"
+      ],
+      "supportedActions": [
+        "hold",
+        "typography",
+        "infographic",
+        "flowchart",
+        "timeline",
+        "comparison",
+        "code_explanation",
+        "step_by_step",
+        "cause_effect",
+        "kinetic_reveal",
+        "editorial_focus",
+        "metric_counter",
+        "chapter_transition",
+        "highlight_code",
+        "compare_split"
+      ],
+      "supportedObjects": [
+        "concept_card_2d",
+        "infographic_board_2d",
+        "flowchart_canvas_2d",
+        "timeline_track_2d",
+        "comparison_matrix_2d",
+        "code_explainer_2d",
+        "step_board_2d",
+        "cause_effect_diagram_2d",
+        "editorial_thesis_monolith",
+        "hero_metric_counter",
+        "architectural_axiom_card",
+        "authentic_code_viewport",
+        "benchmark_telemetry_panel"
+      ],
+      "supportedCameras": [
+        "steady_hold",
+        "slow_dolly_in",
+        "dolly_out",
+        "close_up",
+        "macro_focus",
+        "track_horizontal",
+        "track_vertical"
+      ],
+      "supportedEnvironments": [
+        "editorial_canvas",
+        "editorial_drafting_table",
+        "authentic_developer_workspace",
+        "dark_architectural_stage",
+        "minimal_physical_laboratory"
+      ],
+      "payloadSchema": [
+        "easing",
+        "headline",
+        "subheadline",
+        "key_points",
+        "steps",
+        "active_step",
+        "nodes",
+        "edges",
+        "before_label",
+        "after_label",
+        "before_items",
+        "after_items",
+        "cause_label",
+        "effect_label",
+        "mechanism_label",
+        "lines",
+        "annotation",
+        "timestamps",
+        "metric_value",
+        "metric_unit",
+        "split_ratio",
         "axiom_number"
       ]
     }

@@ -213,7 +213,7 @@ async function main() {
 // Keep process-side locale/timezone stable as well as the supplied browser env.
 process.env.TZ = 'UTC';
 process.env.LANG = 'en_US.UTF-8';
-main().then((code) => { process.exitCode = code; }).catch((error) => {
+main().then((code) => { process.exit(code ?? 0); }).catch((error) => {
   console.error(errorText(error));
-  process.exitCode = 1;
+  process.exit(1);
 });

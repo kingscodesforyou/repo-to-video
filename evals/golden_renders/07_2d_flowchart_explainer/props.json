@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "4.4",
+  "title": "Benchmark 07: 2D 流程图与分步拆解教学",
+  "repoName": "pedagogy-lab/flowchart-explainer",
+  "repoUrl": "https://github.com/pedagogy-lab/flowchart-explainer",
+  "repoType": "Backend / System",
+  "heroSceneId": "scene_01",
+  "chapters": [
+    "缓存穿透与读写链路"
+  ],
+  "globalArtDirection": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "flat_editorial",
+    "camera_philosophy": "orthographic_2d_pedagogy",
+    "max_element_budget": 3
+  },
+  "fps": 30,
+  "totalFrames": 80,
+  "scenes": [
+    {
+      "id": "scene_01",
+      "chapter": "缓存穿透与读写链路",
+      "title": "旁路缓存（Cache-Aside）四步读写流程图",
+      "renderer_id": "editorial_2d_v1",
+      "visual_mode": "2d_editorial",
+      "learning_objective": "零基础观众能够看懂旁路缓存（Cache-Aside）的完整查询流程图，并说出缓存命中与缓存未命中时的四个执行步骤。",
+      "visual_explanation": "采用 2D 正视流程图画布展示客户端、内存缓存与底层数据库之间的节点连线，并配合步骤教学板逐拍点亮『先查备忘录 -> 未命中查档案室 -> 抄写回备忘录 -> 返回结果』四个环节。",
+      "expected_understanding": "观众理解为什么系统要先查高速缓存、查不到再去数据库读取并回填缓存，从而避免每次都慢速翻找数据库。",
+      "narration": "为什么热门商品页面每秒被成千上万人打开，数据库却不会被压垮？秘诀就是旁路缓存（Cache-Aside，一种应用先查高速缓存、查不到再查数据库并顺手写回缓存的经典模式）。你可以把缓存想象成书桌上的便签本，数据库则是地下室的档案柜：查资料时先看手边便签，找不到才下楼翻档案并抄到便签上；不过要注意类比边界，桌面便签不会自己过期，而内存缓存必须设置过期时间来防止旧数据残留。第一拍我们先看完整流程图：请求进入后依次经过缓存检查、数据库回源与缓存回填四个节点。第二拍我们按四步执行清单逐一验证状态变化，确保下一次相同查询直接毫秒级返回。",
+      "visual_intent": "通过 2D 正交流程图与步骤分解板清晰呈现旁路缓存的节点流转与四步执行法。",
+      "art_direction": {
+        "style": "editorial_motion",
+        "lighting": "flat_editorial",
+        "material": "matte_paper",
+        "accent_color": "#34D399",
+        "element_budget": 3
+      },
+      "visual_world": {
+        "environment": "editorial_drafting_table",
+        "primary_object": "flowchart_canvas_2d",
+        "secondary_objects": [
+          "step_board_2d"
+        ],
+        "object_labels": {
+          "flowchart_canvas_2d": "旁路缓存 (Cache-Aside) 四节点流程图",
+          "step_board_2d": "读写状态四步核验看板"
+        }
+      },
+      "visual_choreography": [
+        {
+          "beat": "旁路缓存四节点正视流程图",
+          "phrase_anchor": "第一拍我们先看完整流程图：请求进入后依次经过缓存检查、数据库回源与缓存回填四个节点",
+          "action": "flowchart",
+          "target": "flowchart_canvas_2d",
+          "payload": {
+            "headline": "旁路缓存 (Cache-Aside) 核心查询流程图",
+            "nodes": [
+              "1. 接收查询请求 (GET /product/902)",
+              "2. 查询高速缓存 (Redis 桌面便签)",
+              "3. 回源查询数据库 (MySQL 地下档案柜)",
+              "4. 回填缓存并返回 (写入 TTL=300s)"
+            ],
+            "edges": [
+              "客户端 -> Redis：优先检查缓存键是否存在",
+              "Redis -> MySQL：缓存未命中 (MISS) 时回源读取",
+              "MySQL -> Redis：写入最新商品数据并设置过期时间"
+            ]
+          },
+          "description": "正视 2D 流程图按序点亮四个流程节点与有向连线，无任何三维旋转或透视畸变。",
+          "camera": "steady_hold",
+          "shot_scale": "wide",
+          "yielding": [
+            {
+              "target": "step_board_2d",
+              "opacity": 0.25,
+              "scale": 0.96,
+              "blur": 0,
+              "zOffset": 0
+            }
+          ]
+        },
+        {
+          "beat": "四步状态变化逐项核验",
+          "phrase_anchor": "第二拍我们按四步执行清单逐一验证状态变化",
+          "action": "step_by_step",
+          "target": "step_board_2d",
+          "payload": {
+            "headline": "Cache-Aside 读写状态四步拆解",
+            "active_step": 2,
+            "steps": [
+              "第 1 步（输入状态）：客户端传入商品编号，服务端优先计算缓存键 product:902",
+              "第 2 步（处理细节）：若缓存命中则 1ms 直接返回；若未命中则进入数据库回源分支",
+              "第 3 步（设计原因）：从数据库查出详情并附带 300 秒过期时间写回缓存，兼顾速度与一致性",
+              "第 4 步（输出状态）：接下来 5 分钟内的成千上万次相同查询全部由内存缓存毫秒级响应"
+            ]
+          },
+          "description": "步骤看板逐行高亮展示输入状态、中间处理、设计原因与最终输出效果。",
+          "camera": "slow_dolly_in",
+          "shot_scale": "medium",
+          "yielding": [
+            {
+              "target": "flowchart_canvas_2d",
+              "opacity": 0.3,
+              "scale": 0.95,
+              "blur": 1,
+              "zOffset": 0
+            }
+          ]
+        }
+      ],
+      "type": "choreographed_v4",
+      "durationInFrames": 80,
+      "durationSec": 2.6666666666666665,
+      "audioFrames": 80,
+      "startFrame": 0,
+      "start_frame": 0,
+      "endFrame": 79,
+      "end_frame": 79,
+      "beat_timings": [
+        {
+          "beat_index": 0,
+          "beat": "旁路缓存四节点正视流程图",
+          "action": "flowchart",
+          "target": "flowchart_canvas_2d",
+          "phrase_anchor": "第一拍我们先看完整流程图：请求进入后依次经过缓存检查、数据库回源与缓存回填四个节点",
+          "camera": "steady_hold",
+          "shot_scale": "wide",
+          "start_frame": 0,
+          "startFrame": 0,
+          "end_frame": 39,
+          "endFrame": 39,
+          "mid_frame": 20
+        },
+        {
+          "beat_index": 1,
+          "beat": "四步状态变化逐项核验",
+          "action": "step_by_step",
+          "target": "step_board_2d",
+          "phrase_anchor": "第二拍我们按四步执行清单逐一验证状态变化",
+          "camera": "slow_dolly_in",
+          "shot_scale": "medium",
+          "start_frame": 40,
+          "startFrame": 40,
+          "end_frame": 79,
+          "endFrame": 79,
+          "mid_frame": 60
+        }
+      ],
+      "phrase_timings": [],
+      "word_timings": []
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 {
-  "schema_version": "4.3",
+  "schema_version": "4.4",
   "repo_name": "cli-tool-exec-benchmark",
   "repo_type": "RUNNABLE",
-  "video_title": "Benchmark 04: CLI 工具执行与真实代码视口联动",
+  "video_title": "Benchmark 04: CLI 工具执行与真实代码正视联动 (2D Editorial)",
   "hero_scene_id": "eval_cli_01",
   "chapters": ["CLI 实机运行验证"],
   "global_art_direction": {
@@ -16,11 +16,15 @@
     {
       "id": "eval_cli_01",
       "renderer_id": "product_interface_v1",
+      "visual_mode": "2d_editorial",
+      "learning_objective": "看懂真实构建脚本如何调用视觉校验并在终端输出通过报告",
+      "visual_explanation": "采用 100% 正视无倾斜的 2D 双栏工作台，左侧高亮真实源码行，右侧实时敲入命令并显示校验结果",
+      "expected_understanding": "观众明白只需两行命令即可完成从分镜校验到视觉审核的完整自动化门禁",
       "chapter": "CLI 实机运行验证",
       "title": "真实 CLI 命令执行与核心源码聚焦",
       "continuity_group": "cli_workspace_benchmark",
       "narration": "在开发者工作台中，先查看核心构建入口源码，随后在终端执行验证命令，最后高亮关键校验逻辑并输出零错误报告。",
-      "visual_intent": "通过真实代码窗口与终端命令行联动展示 CLI 工具完整执行过程",
+      "visual_intent": "通过正视 2D 真实代码窗口与终端命令行联动展示 CLI 工具完整执行过程",
       "art_direction": {
         "style": "product_demo",
         "lighting": "soft_studio",
@@ -44,8 +48,8 @@
             "python scripts/visual_qa.py --props workspace/build_props.json"
           ],
           "terminal_output": [
-            "[✓] v4.2 可执行视觉编排与 Renderer Registry 校验通过!",
-            "[✓] Visual QA v4.2 (full) 执行完毕! 综合状态: APPROVED"
+            "[✓] v4.4 教学型视觉编排与 Renderer Registry 校验通过!",
+            "[✓] Visual QA v4.4 (full) 执行完毕! 综合状态: APPROVED"
           ],
           "metrics": [
             { "value": "100%", "label": "Schema 覆盖率" },
@@ -59,11 +63,11 @@
           "phrase_anchor": "先查看核心构建入口源码",
           "action": "reveal_ui",
           "target": "authentic_code_viewport",
-          "description": "展示 build_video.py 真实源码视口，终端保持低对比待机",
+          "description": "展示 build_video.py 真实源码正视视口，终端保持低对比待机",
           "camera": "steady_hold",
           "shot_scale": "wide",
           "yielding": [
-            { "target": "authentic_terminal_bench", "opacity": 0.32, "scale": 0.95, "zOffset": -30, "blur": 1.5 }
+            { "target": "authentic_terminal_bench", "opacity": 0.32, "scale": 0.95, "blur": 1.5 }
           ]
         },
         {
@@ -71,11 +75,11 @@
           "phrase_anchor": "随后在终端执行验证命令",
           "action": "type_command",
           "target": "authentic_terminal_bench",
-          "description": "焦点摇摄至右侧终端，逐字键入验证命令并实时打印通过日志",
+          "description": "焦点平移至右侧终端，逐字键入验证命令并实时打印通过日志",
           "camera": "track_horizontal",
           "shot_scale": "medium",
           "yielding": [
-            { "target": "authentic_code_viewport", "opacity": 0.38, "scale": 0.95, "zOffset": -28, "blur": 1.2 }
+            { "target": "authentic_code_viewport", "opacity": 0.38, "scale": 0.95, "blur": 1.2 }
           ],
           "payload": {
             "command_index": 0
@@ -90,7 +94,7 @@
           "camera": "close_up",
           "shot_scale": "close_up",
           "yielding": [
-            { "target": "authentic_terminal_bench", "opacity": 0.42, "scale": 0.96, "zOffset": -20, "blur": 1.0 }
+            { "target": "authentic_terminal_bench", "opacity": 0.42, "scale": 0.96, "blur": 1.0 }
           ],
           "payload": {
             "lines": [4, 5, 6]

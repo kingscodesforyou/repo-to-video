@@ -1,11 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Executable animation input contract",
+  "title": "Executable animation input contract (v4.4)",
   "type": "object",
-  "required": ["id", "renderer_id", "visual_world", "visual_choreography"],
+  "required": [
+    "id",
+    "renderer_id",
+    "visual_mode",
+    "learning_objective",
+    "visual_explanation",
+    "expected_understanding",
+    "visual_world",
+    "visual_choreography"
+  ],
   "properties": {
     "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"},
     "renderer_id": {"$ref": "#/$defs/nonempty"},
+    "visual_mode": {"enum": ["2d_editorial", "3d_spatial", "hybrid"]},
+    "learning_objective": {"$ref": "#/$defs/pedagogical_text"},
+    "visual_explanation": {"$ref": "#/$defs/pedagogical_text"},
+    "expected_understanding": {"$ref": "#/$defs/pedagogical_text"},
     "visual_world": {
       "type": "object",
       "required": ["environment", "primary_object", "secondary_objects"],
@@ -53,6 +66,7 @@
   },
   "$defs": {
     "nonempty": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "pedagogical_text": {"type": "string", "minLength": 6, "pattern": "\\S"},
     "frame": {"type": "integer", "minimum": 0},
     "particle_payload": {
       "type": "object", "additionalProperties": false,
@@ -105,6 +119,32 @@
         "headline": {"$ref": "#/$defs/headline"}, "subheadline": {"$ref": "#/$defs/subheadline"},
         "metric_value": {"$ref": "#/$defs/metric_value"}, "metric_unit": {"$ref": "#/$defs/metric_unit"},
         "axiom_number": {"$ref": "#/$defs/axiom_number"}, "easing": {"$ref": "#/$defs/easing"}
+      }
+    },
+    "editorial_2d_payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "headline": {"$ref": "#/$defs/headline"},
+        "subheadline": {"$ref": "#/$defs/subheadline"},
+        "key_points": {"$ref": "#/$defs/key_points"},
+        "steps": {"$ref": "#/$defs/steps"},
+        "active_step": {"$ref": "#/$defs/active_step"},
+        "nodes": {"$ref": "#/$defs/nodes"},
+        "edges": {"$ref": "#/$defs/edges"},
+        "before_label": {"$ref": "#/$defs/before_label"},
+        "after_label": {"$ref": "#/$defs/after_label"},
+        "before_items": {"$ref": "#/$defs/before_items"},
+        "after_items": {"$ref": "#/$defs/after_items"},
+        "cause_label": {"$ref": "#/$defs/cause_label"},
+        "effect_label": {"$ref": "#/$defs/effect_label"},
+        "mechanism_label": {"$ref": "#/$defs/mechanism_label"},
+        "lines": {"$ref": "#/$defs/lines"},
+        "annotation": {"$ref": "#/$defs/annotation"},
+        "timestamps": {"$ref": "#/$defs/timestamps"},
+        "metric_value": {"$ref": "#/$defs/metric_value"},
+        "metric_unit": {"$ref": "#/$defs/metric_unit"},
+        "split_ratio": {"$ref": "#/$defs/split_ratio"},
+        "easing": {"$ref": "#/$defs/easing"}
       }
     },
     "bus_payload": {"anyOf": [{"$ref": "#/$defs/mechanical_payload"}, {"$ref": "#/$defs/dataflow_payload"}]},
@@ -164,7 +204,7 @@
     "status_code": {"type": "integer", "minimum": 100, "maximum": 599},
     "overload_tokens": {"type": "integer", "minimum": 1, "maximum": 1000000},
     "precision_tokens": {"type": "integer", "minimum": 1, "maximum": 1000000},
-    "timestamps": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"$ref": "#/$defs/nonempty"}},
+    "timestamps": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/nonempty"}},
     "active_node_index": {"type": "integer", "minimum": 0, "maximum": 3},
     "strain_level": {"type": "number", "minimum": 0, "maximum": 1},
     "lines": {"type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": true, "items": {"type": "integer", "minimum": 1, "maximum": 10000}},
@@ -176,6 +216,19 @@
     "subheadline": {"$ref": "#/$defs/nonempty"},
     "metric_value": {"type": "number", "minimum": -1000000000, "maximum": 1000000000},
     "metric_unit": {"type": "string", "maxLength": 32},
-    "axiom_number": {"type": "integer", "minimum": 1, "maximum": 99}
+    "axiom_number": {"type": "integer", "minimum": 1, "maximum": 99},
+    "key_points": {"type": "array", "minItems": 1, "maxItems": 6, "items": {"$ref": "#/$defs/nonempty"}},
+    "steps": {"type": "array", "minItems": 1, "maxItems": 6, "items": {"$ref": "#/$defs/nonempty"}},
+    "active_step": {"type": "integer", "minimum": 0, "maximum": 5},
+    "nodes": {"type": "array", "minItems": 2, "maxItems": 6, "items": {"$ref": "#/$defs/nonempty"}},
+    "edges": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/nonempty"}},
+    "before_label": {"$ref": "#/$defs/nonempty"},
+    "after_label": {"$ref": "#/$defs/nonempty"},
+    "before_items": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/nonempty"}},
+    "after_items": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/nonempty"}},
+    "cause_label": {"$ref": "#/$defs/nonempty"},
+    "effect_label": {"$ref": "#/$defs/nonempty"},
+    "mechanism_label": {"$ref": "#/$defs/nonempty"},
+    "annotation": {"$ref": "#/$defs/nonempty"}
   }
 }

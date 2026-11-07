@@ -306,9 +306,141 @@ def build_contact_sheet_image(
         return False
 
 
-def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict[str, Any]:
-    """第 1 层：Schema QA（校验注册组件、动作支持度、元素预算 <= 4、真实代码资产与让位规则）"""
+def run_2d_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    v4.4 新增 2D QA：
+    检查：
+    1. visual_mode 合法性与渲染器支持度（任何违反 visual_mode 的镜头直接拒绝）
+    2. 2D 镜头是否意外倾斜（禁止 orbit_left / orbit_right / isometric_tilt / top_down_overview 及 3D style）
+    3. 文字是否水平 & 是否出现不必要的透视（禁止 2D 镜头在 yielding 中使用非零 zOffset）
+    4. 图表和流程图是否清晰（校验 2D 流程图节点、代码行、对比项结构完备）
+    5. 是否超出安全区（校验元素预算 <= 4、次要物体 <= 3、屏幕批注 <= 2 且单条长度合理）
+    """
     from build_video import build_renderers_lookup
+
+    issues: List[str] = []
+    sid = scene.get("id", "unknown")
+    visual_mode = scene.get("visual_mode")
+    art = scene.get("art_direction") or {}
+    world = scene.get("visual_world") or {}
+    choreo = scene.get("visual_choreography") or []
+    overlays = scene.get("text_overlays") or []
+
+    if visual_mode not in ("2d_editorial", "3d_spatial", "hybrid"):
+        issues.append(
+            f"[{sid}] 2D/Mode QA: 缺失或非法的 visual_mode='{visual_mode}'（必须为 2d_editorial / 3d_spatial / hybrid）。"
+        )
+        return {"layer": "2D QA", "status": "FAIL", "issues": issues}
+
+    renderers_map = build_renderers_lookup(manifest)
+    rid = (scene.get("renderer_id") or "").strip()
+    r_spec = renderers_map.get(rid)
+    if r_spec:
+        supported_modes = r_spec.get("visualModes", [])
+        if supported_modes and visual_mode not in supported_modes:
+            issues.append(
+                f"[{sid}] 2D/Mode QA: 渲染器 '{r_spec['id']}' 不支持 visual_mode='{visual_mode}'（支持模式: {supported_modes}）。"
+            )
+
+    forbidden_2d_cams = set(
+        (manifest.get("supported_visual_modes", {}).get("2d_editorial", {}) or {}).get(
+            "forbidden_cameras",
+            ["orbit_left", "orbit_right", "isometric_tilt", "top_down_overview"],
+        )
+    )
+
+    if visual_mode == "2d_editorial":
+        if art.get("style") in ("mechanism_3d", "premium_3d_editorial", "spatial_25d"):
+            issues.append(
+                f"[{sid}] 2D QA: 2d_editorial 镜头严禁使用 3D 艺术风格 '{art.get('style')}'（防止意外三维倾斜）。"
+            )
+        for b_idx, b in enumerate(choreo):
+            cam = b.get("camera")
+            if cam in forbidden_2d_cams:
+                issues.append(
+                    f"[{sid}] 2D QA: Beat #{b_idx + 1} 在 2d_editorial 模式下使用了禁止的 3D 倾斜相机 '{cam}'。"
+                )
+            for rule in b.get("yielding") or []:
+                if isinstance(rule, dict) and rule.get("zOffset") not in (None, 0):
+                    issues.append(
+                        f"[{sid}] 2D QA: Beat #{b_idx + 1} 在 2d_editorial 模式下使用了非零 zOffset={rule.get('zOffset')}（导致透视缩放变形）。"
+                    )
+            act = b.get("action")
+            payload = b.get("payload") or {}
+            if act == "flowchart" and len(payload.get("nodes") or []) < 2:
+                issues.append(f"[{sid}] 2D QA: Beat #{b_idx + 1} 流程图 (flowchart) 节点数不足 2 个，图表不清晰。")
+            if act == "code_explanation" and not (payload.get("lines") or []):
+                issues.append(f"[{sid}] 2D QA: Beat #{b_idx + 1} 代码讲解 (code_explanation) 未指定高亮行 lines。")
+    elif visual_mode == "hybrid":
+        has_2d_info = bool(overlays) or bool(world.get("object_labels"))
+        if not has_2d_info:
+            issues.append(
+                f"[{sid}] Hybrid QA: hybrid 模式镜头必须包含正视 2D 信息层 (text_overlays 或 object_labels)。"
+            )
+
+    # 安全区与信息过载边界检查
+    for ov_idx, ov in enumerate(overlays):
+        txt = str((ov or {}).get("text") or "")
+        if len(txt) > 28:
+            issues.append(
+                f"[{sid}] 2D Safe-Area QA: text_overlays[{ov_idx}] 文字过长 ({len(txt)} 字 > 28)，易超出安全区。"
+            )
+
+    return {
+        "layer": "2D QA",
+        "status": "PASS" if not issues else "FAIL",
+        "issues": issues,
+    }
+
+
+def run_teaching_semantic_qa(scene: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    v4.4 新增教学语义 QA (Teaching Semantic QA)：
+    检查：
+    1. 画面是否真的在解释口播内容 (visual_explanation)
+    2. 观众看完是否能理解原理 (learning_objective & expected_understanding)
+    3. 是否把过程表现出来，而不是只摆文字 (动作多样性与非纯静态卡片检查)
+    4. 类比/视觉动作是否与真实机制对应 (phrase_anchor 与 narration 绑定)
+    5. 信息密度是否过高 (元素预算 <= 4，次要物体 <= 3，批注 <= 2)
+    """
+    issues: List[str] = []
+    sid = scene.get("id", "unknown")
+    learning_obj = str(scene.get("learning_objective") or "").strip()
+    visual_exp = str(scene.get("visual_explanation") or "").strip()
+    expected_und = str(scene.get("expected_understanding") or "").strip()
+    choreo = scene.get("visual_choreography") or []
+    world = scene.get("visual_world") or {}
+    overlays = scene.get("text_overlays") or []
+
+    if len(learning_obj) < 4:
+        issues.append(f"[{sid}] Teaching Semantic QA: 缺少有效的 learning_objective（本镜头教学目标）。")
+    if len(visual_exp) < 4:
+        issues.append(f"[{sid}] Teaching Semantic QA: 缺少有效的 visual_explanation（画面如何帮助理解）。")
+    if len(expected_und) < 4:
+        issues.append(f"[{sid}] Teaching Semantic QA: 缺少有效的 expected_understanding（观众看完应明白什么）。")
+
+    if len(choreo) > 1 and all((b.get("action") == "hold") for b in choreo):
+        issues.append(
+            f"[{sid}] Teaching Semantic QA: 多节拍镜头全部为静态 hold，未把原理过程动态表现出来。"
+        )
+
+    sec_objs = world.get("secondary_objects") or []
+    if len(sec_objs) > 3 or len(overlays) > 2:
+        issues.append(
+            f"[{sid}] Teaching Semantic QA: 画面信息密度过高 (secondary_objects={len(sec_objs)}, text_overlays={len(overlays)})。"
+        )
+
+    return {
+        "layer": "Teaching Semantic QA",
+        "status": "PASS" if not issues else "FAIL",
+        "issues": issues,
+    }
+
+
+def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict[str, Any]:
+    """第 1 层：Schema QA（含 v4.4 2D QA、Teaching Semantic QA、注册组件、动作支持度、元素预算 <= 4、真实代码资产与让位规则）"""
+    from build_video import build_renderers_lookup
+    from animation_contract import validate_animation_scene
 
     issues = []
     sid = scene.get("id", "unknown")
@@ -316,6 +448,16 @@ def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict
     world = scene.get("visual_world") or {}
     choreo = scene.get("visual_choreography") or []
     overlays = scene.get("text_overlays") or []
+
+    contract_errs = validate_animation_scene(scene, manifest)
+    for cerr in contract_errs:
+        issues.append(f"[{sid}] Contract QA: {cerr}")
+
+    two_d_res = run_2d_qa_layer(scene, manifest)
+    issues.extend(two_d_res["issues"])
+
+    teaching_res = run_teaching_semantic_qa(scene)
+    issues.extend(teaching_res["issues"])
 
     renderers_map = build_renderers_lookup(manifest)
     rid = (scene.get("renderer_id") or "").strip()
@@ -358,6 +500,8 @@ def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict
     return {
         "layer": "Schema QA",
         "status": "PASS" if not issues else "FAIL",
+        "two_d_qa": two_d_res["status"],
+        "teaching_semantic_qa": teaching_res["status"],
         "issues": issues,
     }
 

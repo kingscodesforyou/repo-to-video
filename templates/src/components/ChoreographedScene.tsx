@@ -59,6 +59,10 @@ export interface CameraPose3D {
 export interface SceneV4Props {
   id: string;
   renderer_id?: string;
+  visual_mode?: "2d_editorial" | "3d_spatial" | "hybrid" | string;
+  learning_objective?: string;
+  visual_explanation?: string;
+  expected_understanding?: string;
   chapter?: string;
   title?: string;
   continuity_group?: string;
@@ -126,22 +130,24 @@ export function cameraPoseForBeat(
   shotScale: string = "medium",
   beatIndex: number = 0,
   targetId: string = "",
-  cameraConfig?: CameraConfig
+  cameraConfig?: CameraConfig,
+  visualMode: string = "3d_spatial"
 ): CameraPose3D {
+  const is2D = visualMode === "2d_editorial";
   let scale = 1.0;
-  let focusPullStrength = 0.14;
+  let focusPullStrength = is2D ? 0.08 : 0.14;
   if (shotScale === "wide") {
-    scale = 0.92;
-    focusPullStrength = 0.06;
+    scale = is2D ? 0.96 : 0.92;
+    focusPullStrength = is2D ? 0.04 : 0.06;
   } else if (shotScale === "medium") {
-    scale = 1.02;
-    focusPullStrength = 0.14;
+    scale = is2D ? 1.0 : 1.02;
+    focusPullStrength = is2D ? 0.08 : 0.14;
   } else if (shotScale === "close_up") {
-    scale = 1.15;
-    focusPullStrength = 0.24;
+    scale = is2D ? 1.06 : 1.15;
+    focusPullStrength = is2D ? 0.12 : 0.24;
   } else if (shotScale === "macro") {
-    scale = 1.24;
-    focusPullStrength = 0.32;
+    scale = is2D ? 1.1 : 1.24;
+    focusPullStrength = is2D ? 0.16 : 0.32;
   }
 
   const speedFactor =
@@ -153,9 +159,46 @@ export function cameraPoseForBeat(
       ? cameraConfig.speed
       : 1.0;
 
-  // 查询焦点目标在 3D 舞台中的空间坐标 [x, y, z]
+  // 查询焦点目标在舞台中的坐标 [x, y, z]
   const lookAtTarget = cameraConfig?.lookAt || targetId;
   const [objX, objY, objZ] = getObject3DCoords(lookAtTarget);
+
+  // v4.4: 2D 正视模式严禁任何三维倾斜 (rotX=0, rotY=0, rotZ=0, tz=0)，仅允许平面平移与温和缩放
+  if (is2D) {
+    let tx = -objX * focusPullStrength * speedFactor;
+    let ty = -objY * focusPullStrength * speedFactor;
+    switch (camera) {
+      case "slow_dolly_in":
+        scale *= 1.02;
+        break;
+      case "dolly_out":
+        scale *= 0.97;
+        break;
+      case "close_up":
+        scale = Math.max(scale, 1.05);
+        tx = -objX * 0.1;
+        ty = -objY * 0.08;
+        break;
+      case "macro_focus":
+        scale = Math.max(scale, 1.08);
+        tx = -objX * 0.12;
+        ty = -objY * 0.1;
+        break;
+      case "track_horizontal":
+        tx = -objX * 0.08 + (beatIndex % 2 === 0 ? 12 : -12) * speedFactor;
+        break;
+      case "track_vertical":
+        ty = -objY * 0.08 + (beatIndex === 0 ? 10 : -10) * speedFactor;
+        break;
+      case "steady_hold":
+      default:
+        tx = 0;
+        ty = 0;
+        scale = 1.0;
+        break;
+    }
+    return { scale, rotX: 0, rotY: 0, rotZ: 0, tx, ty, tz: 0 };
+  }
 
   // 相机向目标实体平滑摇摄对焦 (Target LookAt Offset)
   let tx = -objX * focusPullStrength * speedFactor;
@@ -271,11 +314,13 @@ export function resolveBeatWindows(
 
 /** 计算镜头结束帧的相机姿态，供同一 continuity_group 的下一镜无缝继承 */
 export function computeEndingCameraPose(scene: {
+  visual_mode?: string;
   visual_choreography?: ChoreographyBeat[];
 }): CameraPose3D {
   const beats = scene.visual_choreography || [];
+  const mode = scene.visual_mode || "3d_spatial";
   if (beats.length === 0) {
-    return cameraPoseForBeat("steady_hold", "medium", 0, "");
+    return cameraPoseForBeat("steady_hold", "medium", 0, "", undefined, mode);
   }
   const lastIdx = beats.length - 1;
   const lastBeat = beats[lastIdx];
@@ -284,7 +329,8 @@ export function computeEndingCameraPose(scene: {
     lastBeat.shot_scale,
     lastIdx,
     lastBeat.target,
-    lastBeat.camera_config
+    lastBeat.camera_config,
+    mode
   );
 }
 
@@ -395,16 +441,22 @@ export const ChoreographedScene: React.FC<{
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
-  // 2. 构建跨节拍与跨连续镜头的 Hermite 样条 3D 相机轨迹（含 scale, rotX, rotY, rotZ, tx, ty, tz）
+  // 2. 构建跨节拍与跨连续镜头的 Hermite 样条相机轨迹（2D 模式严格锁定 rotX=rotY=rotZ=tz=0）
+  const visualMode = scene.visual_mode || "3d_spatial";
+  const is2D = visualMode === "2d_editorial";
+  const isHybrid = visualMode === "hybrid";
+
   const firstBeatPose =
-    scene.initialCameraPose ||
-    cameraPoseForBeat(
-      beats[0]?.camera,
-      beats[0]?.shot_scale,
-      0,
-      beats[0]?.target,
-      beats[0]?.camera_config
-    );
+    scene.initialCameraPose && !is2D
+      ? scene.initialCameraPose
+      : cameraPoseForBeat(
+          beats[0]?.camera,
+          beats[0]?.shot_scale,
+          0,
+          beats[0]?.target,
+          beats[0]?.camera_config,
+          visualMode
+        );
 
   const keyFrames: number[] = [0];
   const poses: CameraPose3D[] = [firstBeatPose];
@@ -421,7 +473,8 @@ export const ChoreographedScene: React.FC<{
         beats[i]?.shot_scale,
         i,
         beats[i]?.target,
-        beats[i]?.camera_config
+        beats[i]?.camera_config,
+        visualMode
       )
     );
   });
@@ -439,20 +492,26 @@ export const ChoreographedScene: React.FC<{
   const tzSpline = hermiteSpline(keyFrames, poses.map((p) => p.tz));
 
   const camScale = scaleSpline(f);
-  const camRotX = rotXSpline(f);
-  const camRotY = rotYSpline(f);
-  const camRotZ = rotZSpline(f);
+  const camRotX = is2D ? 0 : rotXSpline(f);
+  const camRotY = is2D ? 0 : rotYSpline(f);
+  const camRotZ = is2D ? 0 : rotZSpline(f);
   const camTx = txSpline(f);
   const camTy = tySpline(f);
-  const camTz = tzSpline(f);
+  const camTz = is2D ? 0 : tzSpline(f);
 
   // 3. 严格通过 scene.renderer_id 获取注册渲染组件（零启发式猜测或静默降级！）
   const primaryId = normalizeObjectId(world.primary_object);
   const actionsList = beats.map((b) => b.action);
   const matchedRenderer = resolveSceneRenderer(scene.renderer_id);
 
-  const getYieldStyle = createYieldStyleResolver(activeBeat, beatProgress, world.object_labels);
+  const getYieldStyle = createYieldStyleResolver(
+    activeBeat,
+    beatProgress,
+    world.object_labels,
+    visualMode
+  );
   const overlays = scene.text_overlays || [];
+  const hybridLabels = isHybrid ? Object.entries(world.object_labels || {}) : [];
 
   return (
     <AbsoluteFill
@@ -558,12 +617,13 @@ export const ChoreographedScene: React.FC<{
         </div>
       </div>
 
-      {/* 中央：3D 连续运镜主视口（完整包含 translate3d X/Y/Z、scale 与 rotateX/Y/Z） */}
+      {/* 中央视口：根据 visual_mode 严格区分 2d_editorial (正交零倾斜) / 3d_spatial / hybrid (3D主体+2D正交层) */}
       <div
+        data-visual-mode={visualMode}
         style={{
           flex: 1,
           position: "relative",
-          perspective: `${envConfig.perspective_px || 1800}px`,
+          perspective: is2D ? "none" : `${envConfig.perspective_px || 1800}px`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -571,15 +631,20 @@ export const ChoreographedScene: React.FC<{
         }}
       >
         <div
+          data-stage-projection={is2D ? "orthographic_2d" : "perspective_3d"}
           style={{
-            transformStyle: "preserve-3d",
-            transform: `translate3d(${camTx.toFixed(1)}px, ${camTy.toFixed(
-              1
-            )}px, ${camTz.toFixed(1)}px) scale(${camScale.toFixed(
-              3
-            )}) rotateX(${camRotX.toFixed(2)}deg) rotateY(${camRotY.toFixed(
-              2
-            )}deg) rotateZ(${camRotZ.toFixed(2)}deg)`,
+            transformStyle: is2D ? "flat" : "preserve-3d",
+            transform: is2D
+              ? `translate(${camTx.toFixed(1)}px, ${camTy.toFixed(1)}px) scale(${camScale.toFixed(
+                  3
+                )})`
+              : `translate3d(${camTx.toFixed(1)}px, ${camTy.toFixed(
+                  1
+                )}px, ${camTz.toFixed(1)}px) scale(${camScale.toFixed(
+                  3
+                )}) rotateX(${camRotX.toFixed(2)}deg) rotateY(${camRotY.toFixed(
+                  2
+                )}deg) rotateZ(${camRotZ.toFixed(2)}deg)`,
           }}
         >
           {matchedRenderer ? (
@@ -623,6 +688,92 @@ export const ChoreographedScene: React.FC<{
             </div>
           )}
         </div>
+
+        {/* Hybrid 专属：2D 正视教学信息层 (不随 3D 主体旋转或透视倾斜，文字始终 100% 水平清晰) */}
+        {isHybrid && (hybridLabels.length > 0 || scene.learning_objective) && (
+          <div
+            data-hybrid-2d-layer="true"
+            style={{
+              position: "absolute",
+              left: 16,
+              top: 14,
+              right: 16,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              pointerEvents: "none",
+              transform: "none",
+              perspective: "none",
+              zIndex: 48,
+            }}
+          >
+            {scene.learning_objective && (
+              <div
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 10,
+                  background: theme.surfaceElevated,
+                  border: `1.5px solid ${theme.accent}`,
+                  boxShadow: `0 10px 24px ${theme.shadowColor}`,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: theme.textPrimary,
+                  maxWidth: 620,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 11,
+                    color: theme.accent,
+                    marginRight: 8,
+                    fontWeight: 800,
+                  }}
+                >
+                  2D HUD // 教学目标
+                </span>
+                {scene.learning_objective}
+              </div>
+            )}
+            {hybridLabels.length > 0 && (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {hybridLabels.slice(0, 3).map(([objId, labelText]) => {
+                  const isFocused = objId === activeBeat?.target;
+                  return (
+                    <div
+                      key={objId}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: 8,
+                        background: isFocused
+                          ? `${theme.accent}26`
+                          : theme.surfaceElevated,
+                        border: `1.5px solid ${
+                          isFocused ? theme.accent : theme.borderStrong
+                        }`,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: theme.textPrimary,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: MONO,
+                          fontSize: 11,
+                          color: theme.accent,
+                          marginRight: 6,
+                        }}
+                      >
+                        {isFocused ? "● FOCUS" : "○ 2D LABEL"}
+                      </span>
+                      {labelText}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 克制的屏幕批注层 (text_overlays, 上限 2 条) */}
         {overlays.length > 0 && (

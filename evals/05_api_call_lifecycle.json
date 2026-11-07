@@ -1,8 +1,8 @@
 {
-  "schema_version": "4.3",
+  "schema_version": "4.4",
   "repo_name": "api-lifecycle-benchmark",
   "repo_type": "RUNNABLE",
-  "video_title": "Benchmark 05: API 调用全生命周期与流式响应回传",
+  "video_title": "Benchmark 05: API 调用全生命周期与 Hybrid 正视指标层 (Hybrid)",
   "hero_scene_id": "eval_api_01",
   "chapters": ["API 调用全过程"],
   "global_art_direction": {
@@ -16,11 +16,15 @@
     {
       "id": "eval_api_01",
       "renderer_id": "dataflow_router_v1",
+      "visual_mode": "hybrid",
+      "learning_objective": "理解一次网络接口请求从发出、网关检查到结果流式返回的全过程",
+      "visual_explanation": "底层用 3D 路由与拓扑网络展示报文流动，顶层叠加正视不倾斜的 2D 部件标签与延迟指标",
+      "expected_understanding": "观众看懂请求不会直接撞向后台，而是先经过网关安检和分流，再把结果稳稳送回客户端",
       "chapter": "API 调用全过程",
       "title": "客户端报文发射、网关路由与流式响应",
       "continuity_group": "api_lifecycle_benchmark",
       "narration": "客户端首先封装结构化请求报文并发起调用，经由 API 网关完成多通道鉴权与路由分发，最后将流式响应载荷实时汇聚回传。",
-      "visual_intent": "在浅色编辑制图台环境中展示 API 请求发送、网关并发路由与响应载荷晶体回传",
+      "visual_intent": "在浅色编辑制图台环境中展示 3D API 路由与正视 2D 标签混合构图",
       "art_direction": {
         "style": "editorial_motion",
         "theme": "light_editorial",
@@ -36,7 +40,12 @@
           "api_client_origin",
           "request_packets",
           "response_payload_crystal"
-        ]
+        ],
+        "object_labels": {
+          "api_client_origin": "1. 客户端请求起点",
+          "api_gateway_endpoint": "2. 网关安检与分流",
+          "response_payload_crystal": "3. 流式结果回传"
+        }
       },
       "visual_choreography": [
         {

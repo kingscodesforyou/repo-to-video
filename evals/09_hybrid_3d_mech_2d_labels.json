@@ -1,0 +1,133 @@
+{
+  "schema_version": "4.4",
+  "video_title": "Benchmark 09: Hybrid 2D 正视标签 + 3D 机械主体拆解",
+  "repo_name": "pedagogy-lab/hybrid-mech-inspector",
+  "repo_url": "https://github.com/pedagogy-lab/hybrid-mech-inspector",
+  "repo_type": "Infrastructure / Engine",
+  "hero_scene_id": "scene_01",
+  "chapters": ["立体机械拆解与正视教学标签"],
+  "global_art_direction": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "dramatic_rim",
+    "camera_philosophy": "continuous_narrative_flow",
+    "max_element_budget": 4
+  },
+  "scenes": [
+    {
+      "id": "scene_01",
+      "chapter": "立体机械拆解与正视教学标签",
+      "title": "存储引擎三层立体底座拆解与 2D 正交指标 HUD",
+      "renderer_id": "architecture_v1",
+      "visual_mode": "hybrid",
+      "learning_objective": "零基础观众能够通过 3D 机械分层结构看清存储引擎的接入层、内存缓冲层与磁盘持久化层的空间层级关系，同时通过正视不倾斜的 2D 标签读懂每一层的吞吐指标与职责。",
+      "visual_explanation": "采用 Hybrid 混合模式：舞台中央使用 3D 空间分层架构模组执行机械拆解、激光扫描与总线闭环；顶层独立挂载正交 2D 教学 HUD 标签层，确保说明文字、学习目标与性能指标始终 100% 水平正视，绝不随 3D 主体一起倾斜。",
+      "expected_understanding": "观众既能借助 3D 爆炸图直观理解三层存储引擎的上下游物理组装关系，又能毫不费力地阅读水平清晰的 2D 教学标签。",
+      "narration": "当数据库每秒写入十万条订单时，它是怎么做到既快如闪电又断电不丢数据的？我们用三维立体拆解配合二维正视标签来看看存储引擎的三层底座。你可以把它想象成餐厅的『前台点单员、厨房备餐台与冷库保险柜』三层协作；但要注意类比边界，餐厅备餐台靠人工传递菜单，而存储引擎靠内存预写日志（WAL，Write-Ahead Log，也就是先顺序追加日志再修改数据页的防丢机制）与异步刷盘总线来保证毫秒级同步。第一拍我们将三层机械底座沿垂直轴爆炸拆开，并在正视 2D 标签层标注每一层的职责。第二拍激光扫描中间缓冲层，最后在第三拍接通垂直总线并重新锁紧成完整引擎。",
+      "visual_intent": "结合 3D 立体分层爆炸动效与 2D 正交水平教学标签，兼顾空间结构感与文字可读性。",
+      "art_direction": {
+        "style": "mechanism_3d",
+        "lighting": "dramatic_rim",
+        "material": "brushed_aluminum",
+        "accent_color": "#F59E0B",
+        "element_budget": 4
+      },
+      "visual_world": {
+        "environment": "dark_architectural_stage",
+        "primary_object": "layered_architecture",
+        "secondary_objects": [
+          "graph_topology_slab",
+          "vector_index_slab",
+          "sqlite_ledger_slab"
+        ],
+        "object_labels": {
+          "layered_architecture": "三层存储引擎机械总成",
+          "graph_topology_slab": "L1 协议接入层：校验 SQL 与事务凭证",
+          "vector_index_slab": "L2 内存缓冲层 (MemTable + WAL)：微秒级顺序写入",
+          "sqlite_ledger_slab": "L3 磁盘持久化层 (SSTable)：后台合并压缩落盘"
+        }
+      },
+      "visual_choreography": [
+        {
+          "beat": "三层机械结构垂直爆炸拆解",
+          "phrase_anchor": "第一拍我们将三层机械底座沿垂直轴爆炸拆开",
+          "action": "explode_layers",
+          "target": "layered_architecture",
+          "payload": {
+            "explode_distance": 135,
+            "easing": "cubic_out"
+          },
+          "description": "3D 架构三层底座沿 Y 轴拉开间距展示内部结构，同时顶部 2D 教学 HUD 保持水平正视显示层级说明。",
+          "camera": "isometric_tilt",
+          "shot_scale": "wide",
+          "yielding": [
+            {
+              "target": "background_grid",
+              "opacity": 0.35,
+              "scale": 0.92,
+              "blur": 1,
+              "zOffset": -90
+            }
+          ]
+        },
+        {
+          "beat": "激光扫描中间内存缓冲层",
+          "phrase_anchor": "第二拍激光扫描中间缓冲层",
+          "action": "scan_layer",
+          "target": "vector_index_slab",
+          "payload": {
+            "focus_layer": 1,
+            "scan_progress": 0.9
+          },
+          "description": "扫描光束聚焦中间内存缓冲层，2D 正视标签同步展示 WAL 预写日志的写入逻辑。",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "yielding": [
+            {
+              "target": "graph_topology_slab",
+              "opacity": 0.28,
+              "scale": 0.9,
+              "blur": 2,
+              "zOffset": -120
+            },
+            {
+              "target": "sqlite_ledger_slab",
+              "opacity": 0.28,
+              "scale": 0.9,
+              "blur": 2,
+              "zOffset": -120
+            }
+          ]
+        },
+        {
+          "beat": "垂直刷盘总线接通与机械锁紧",
+          "phrase_anchor": "最后在第三拍接通垂直总线并重新锁紧成完整引擎",
+          "action": "assemble",
+          "target": "layered_architecture",
+          "payload": {
+            "easing": "cubic_out"
+          },
+          "description": "三层机械结构沿垂直总线重新咬合归位，2D 教学层展示最终吞吐与持久化闭环结论。",
+          "camera": "dolly_out",
+          "shot_scale": "medium",
+          "yielding": [
+            {
+              "target": "background_grid",
+              "opacity": 0.4,
+              "scale": 0.95,
+              "blur": 1,
+              "zOffset": -80
+            }
+          ]
+        }
+      ],
+      "text_overlays": [
+        {
+          "text": "2D正视层：WAL预写日志与三层存储解耦",
+          "role": "annotation",
+          "beat_index": 1
+        }
+      ]
+    }
+  ]
+}

@@ -157,7 +157,7 @@ class GoldenComparisonTests(unittest.TestCase):
 class PropsAndSamplesTests(unittest.TestCase):
     def test_all_five_cases_preserve_original_fields_and_deterministic_timings(self):
         cases = sorted((ROOT / "evals").glob("0*.json"))
-        self.assertEqual(len(cases), 5)
+        self.assertEqual(len(cases), 9)
         for case in cases:
             with self.subTest(case=case.name):
                 storyboard = json.loads(case.read_text(encoding="utf-8"))

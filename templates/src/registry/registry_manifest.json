@@ -1,0 +1,375 @@
+{
+  "registry_version": "4.1.0",
+  "element_budget_policy": {
+    "max_total_major_elements": 4,
+    "max_primary_objects": 1,
+    "max_secondary_objects": 3,
+    "max_text_overlays": 2,
+    "collective_groups": [
+      "information_particles",
+      "signal_particles",
+      "network_nodes",
+      "data_packets"
+    ]
+  },
+  "supported_environments": {
+    "minimal_physical_laboratory": {
+      "theme_default": "dark_cinematic",
+      "grid_size": 64,
+      "horizon_line": true,
+      "floor_reflection": 0.18,
+      "perspective_px": 1800,
+      "description": "极简物理实验室：带光学水平基准线、体积地面反射与精密标尺网格"
+    },
+    "dark_architectural_stage": {
+      "theme_default": "dark_cinematic",
+      "grid_size": 80,
+      "horizon_line": true,
+      "floor_reflection": 0.24,
+      "perspective_px": 1600,
+      "description": "深色建筑级空间舞台：高对比度轮廓光、等轴测纵深柱网与悬浮底座"
+    },
+    "editorial_drafting_table": {
+      "theme_default": "light_editorial",
+      "grid_size": 72,
+      "horizon_line": false,
+      "floor_reflection": 0.0,
+      "perspective_px": 2000,
+      "description": "浅色理性制图桌面：暖白纸感底色、工程十字准星与毫米级刻度边框"
+    },
+    "editorial_canvas": {
+      "theme_default": "light_editorial",
+      "grid_size": 96,
+      "horizon_line": false,
+      "floor_reflection": 0.0,
+      "perspective_px": 2200,
+      "description": "浅色编辑画布：大留白极简背景，适合原理推导与动态排版"
+    },
+    "authentic_developer_workspace": {
+      "theme_default": "dark_cinematic",
+      "grid_size": 88,
+      "horizon_line": false,
+      "floor_reflection": 0.1,
+      "perspective_px": 1900,
+      "description": "真实开发者演播室：暗场桌面托底、屏幕环境背光，聚焦真实代码与终端"
+    },
+    "spatial_network_void": {
+      "theme_default": "dark_cinematic",
+      "grid_size": 56,
+      "horizon_line": true,
+      "floor_reflection": 0.12,
+      "perspective_px": 1500,
+      "description": "三维空间网络场：带 X/Y/Z 三维坐标轴参考面与景深雾效"
+    }
+  },
+  "supported_cameras": [
+    "slow_dolly_in",
+    "dolly_out",
+    "close_up",
+    "macro_focus",
+    "track_horizontal",
+    "track_vertical",
+    "orbit_left",
+    "orbit_right",
+    "isometric_tilt",
+    "top_down_overview",
+    "steady_hold"
+  ],
+  "renderers": [
+    {
+      "id": "PhysicalSimulation",
+      "name": "3D 粒子与物理形态仿真组件",
+      "category": "PhysicalSimulation",
+      "renderTech": ["ThreeJS", "SVG", "Remotion+CSS"],
+      "supportedActions": [
+        "particles_flow",
+        "separate",
+        "collide",
+        "split",
+        "merge",
+        "transform",
+        "crystallize"
+      ],
+      "supportedObjects": [
+        "3d_filter_machine",
+        "information_particles",
+        "signal_particles",
+        "waste_container",
+        "purified_object",
+        "morphing_crystal",
+        "particle_attractor"
+      ],
+      "supportedCameras": [
+        "slow_dolly_in",
+        "track_horizontal",
+        "close_up",
+        "macro_focus",
+        "orbit_right",
+        "steady_hold"
+      ],
+      "supportedEnvironments": [
+        "minimal_physical_laboratory",
+        "spatial_network_void",
+        "editorial_drafting_table"
+      ],
+      "payloadSchema": [
+        "particle_count",
+        "valid_ratio",
+        "flow_speed",
+        "split_angle",
+        "crystal_facets",
+        "gravity",
+        "token_labels"
+      ],
+      "recommendedUseCases": [
+        "数据过滤、去噪与信息提纯",
+        "Token 切块、向量化或特征聚类",
+        "多源碎片信息融合生成新结构"
+      ],
+      "antiPatterns": [
+        "不要用于展示静态目录列表",
+        "不要把整段长句子塞进单个粒子标签"
+      ]
+    },
+    {
+      "id": "MechanicalStructure",
+      "name": "3D 机械结构拆解与装配组件",
+      "category": "MechanicalStructure",
+      "renderTech": ["ThreeJS", "SVG", "Remotion+CSS"],
+      "supportedActions": [
+        "explode_layers",
+        "disassemble",
+        "rotate_rotor",
+        "interlock",
+        "scan_layer",
+        "assemble"
+      ],
+      "supportedObjects": [
+        "layered_architecture",
+        "mechanical_core",
+        "rotor_ring_assembly",
+        "sqlite_ledger_slab",
+        "vector_index_slab",
+        "graph_topology_slab",
+        "converged_answer_crystal"
+      ],
+      "supportedCameras": [
+        "isometric_tilt",
+        "orbit_left",
+        "orbit_right",
+        "track_vertical",
+        "close_up",
+        "dolly_out"
+      ],
+      "supportedEnvironments": [
+        "dark_architectural_stage",
+        "minimal_physical_laboratory",
+        "editorial_drafting_table"
+      ],
+      "payloadSchema": [
+        "explode_distance",
+        "focus_layer",
+        "rotor_rpm",
+        "scan_progress",
+        "layer_specs"
+      ],
+      "recommendedUseCases": [
+        "多层存储引擎或编译器架构拆解",
+        "内部核心模块咬合与解耦关系",
+        "硬件/系统栈自底向上装配过程"
+      ],
+      "antiPatterns": [
+        "不要用于简单的业务步骤顺序介绍",
+        "层数不要超过 4 层以免空间拥挤"
+      ]
+    },
+    {
+      "id": "DataFlow",
+      "name": "多路数据流、空间网络与信号路由组件",
+      "category": "DataFlow",
+      "renderTech": ["SVG", "ThreeJS", "Remotion+CSS"],
+      "supportedActions": [
+        "emit_probes",
+        "weigh_signals",
+        "route_stream",
+        "connect_bus",
+        "converge_result"
+      ],
+      "supportedObjects": [
+        "multi_probe_router",
+        "spatial_topology_graph",
+        "optical_data_bus",
+        "vector_probe",
+        "lexical_probe",
+        "graph_probe",
+        "temporal_probe",
+        "network_nodes"
+      ],
+      "supportedCameras": [
+        "slow_dolly_in",
+        "track_horizontal",
+        "orbit_right",
+        "top_down_overview",
+        "close_up"
+      ],
+      "supportedEnvironments": [
+        "spatial_network_void",
+        "minimal_physical_laboratory",
+        "dark_architectural_stage"
+      ],
+      "payloadSchema": [
+        "weights",
+        "active_channels",
+        "confidence_target",
+        "node_connections",
+        "pulse_speed"
+      ],
+      "recommendedUseCases": [
+        "多路混合检索（Vector + BM25 + Graph + Temporal）加权融合",
+        "MoE 专家路由与负载均衡分发",
+        "知识图谱三维节点拓扑连线"
+      ],
+      "antiPatterns": [
+        "不要退化为静止的雷达打分表",
+        "不要同时高亮超过 4 条主干流线"
+      ]
+    },
+    {
+      "id": "SystemArchitecture",
+      "name": "系统时序状态与空间负载对比组件",
+      "category": "SystemArchitecture",
+      "renderTech": ["SVG", "Remotion+CSS", "ThreeJS"],
+      "supportedActions": [
+        "append_state",
+        "anchor_timestamp",
+        "trace_lineage",
+        "overload_collapse",
+        "precision_extract"
+      ],
+      "supportedObjects": [
+        "state_timeline_track",
+        "physical_balance_stage",
+        "historical_state_v1",
+        "incremental_state_v2",
+        "timestamped_latest_state",
+        "indexed_fact_node"
+      ],
+      "supportedCameras": [
+        "track_horizontal",
+        "slow_dolly_in",
+        "close_up",
+        "steady_hold",
+        "dolly_out"
+      ],
+      "supportedEnvironments": [
+        "editorial_drafting_table",
+        "minimal_physical_laboratory",
+        "dark_architectural_stage"
+      ],
+      "payloadSchema": [
+        "overload_tokens",
+        "precision_tokens",
+        "timestamps",
+        "active_node_index",
+        "strain_level"
+      ],
+      "recommendedUseCases": [
+        "Append-only 状态演进、Git 提交树与时间锚点推理",
+        "全量上下文超载崩塌 vs 精准索引 O(1) 抽卡对比"
+      ],
+      "antiPatterns": [
+        "不要放满屏的左/右文字对比 bullet points"
+      ]
+    },
+    {
+      "id": "ProductInterface",
+      "name": "真实代码、终端实操与产品界面演示组件",
+      "category": "ProductInterface",
+      "renderTech": ["ScreenRecording", "Remotion+CSS", "SVG"],
+      "supportedActions": [
+        "reveal_ui",
+        "highlight_code",
+        "type_command",
+        "execute_output",
+        "navigate",
+        "interact",
+        "compare_split"
+      ],
+      "supportedObjects": [
+        "authentic_code_viewport",
+        "authentic_terminal_bench",
+        "authentic_ui_showcase",
+        "benchmark_telemetry_panel"
+      ],
+      "supportedCameras": [
+        "steady_hold",
+        "slow_dolly_in",
+        "close_up",
+        "macro_focus",
+        "track_vertical"
+      ],
+      "supportedEnvironments": [
+        "authentic_developer_workspace",
+        "editorial_canvas",
+        "dark_architectural_stage"
+      ],
+      "payloadSchema": [
+        "lines",
+        "command_index",
+        "zoom_region",
+        "split_ratio",
+        "cursor_pos"
+      ],
+      "recommendedUseCases": [
+        "展示仓库真实源码核心逻辑（自动行级聚焦与非核心行暗化让位）",
+        "真实 CLI 安装与调用命令执行过程",
+        "真实 Web UI 截图/录屏交互演示"
+      ],
+      "antiPatterns": [
+        "严禁编造仓库中不存在的假 API 或假代码",
+        "单屏代码展示严禁超过 14 行"
+      ]
+    },
+    {
+      "id": "KineticTypography",
+      "name": "高级编辑动态排版与核心命题揭示组件",
+      "category": "KineticTypography",
+      "renderTech": ["Remotion+CSS", "SVG"],
+      "supportedActions": [
+        "kinetic_reveal",
+        "editorial_focus",
+        "metric_counter",
+        "chapter_transition"
+      ],
+      "supportedObjects": [
+        "editorial_thesis_monolith",
+        "hero_metric_counter",
+        "architectural_axiom_card"
+      ],
+      "supportedCameras": [
+        "steady_hold",
+        "slow_dolly_in",
+        "dolly_out"
+      ],
+      "supportedEnvironments": [
+        "editorial_canvas",
+        "editorial_drafting_table",
+        "dark_architectural_stage"
+      ],
+      "payloadSchema": [
+        "headline",
+        "subheadline",
+        "metric_value",
+        "metric_unit",
+        "axiom_number"
+      ],
+      "recommendedUseCases": [
+        "开场核心技术命题揭示",
+        "章节逻辑转折点与核心性能指标定格"
+      ],
+      "antiPatterns": [
+        "全片使用不得超过 1~2 次，绝不允许代替核心机制动画"
+      ]
+    }
+  ]
+}

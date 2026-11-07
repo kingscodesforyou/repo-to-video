@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-build_video.py (v4) - 视觉导演制构建流水线：
+build_video.py (v4.1) - 可执行的视觉编排系统构建流水线：
 1. 分析目标仓库并拉取实时 GitHub 数据
-2. 严格校验 workspace/storyboard.json (v4 Visual Choreography Schema)，彻底移除默认模板降级
-3. 调用 Index-TTS 生成配音并计算短语级/动作节拍级时间锚点 (phrase_timings / beat_timings)
-4. 组装 Remotion 渲染配置 (build_props.json / build_props.first_shot.json / build_props.pilot.json)
-5. 支持首镜样板审核 (--first-shot) 与全片视觉 QA (--run-qa)
+2. 严格执行 v4.1 字段级白名单、Renderer Registry 能力校验、元素预算 (<= 4) 与 phrase_anchor 顺序校验
+3. 验证 Motion Designer 组件绑定（严禁未知动作/物体静默退化到默认模板）
+4. 调用短语级分段 TTS 配音与声学强制对齐 (phrase_timings / word_timings / beat_timings)
+5. 支持代表性样板镜头审核 (hero_scene_id / --hero-shot) 与四层 Visual QA (--run-qa)
 """
 
 import os
@@ -17,27 +17,101 @@ import shutil
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Set
 
 # 确保脚本所在目录加入导入路径
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
 
-FORBIDDEN_LEGACY_CARD_TYPES = {
-    "compare",
-    "points",
-    "skill_grid",
-    "skill_card",
-    "tier_list",
-    "matrix_compare",
+ALLOWED_TOP_KEYS: Set[str] = {
+    "schema_version",
+    "repo_name",
+    "repo_url",
+    "repo_type",
+    "video_title",
+    "hero_scene_id",
+    "chapters",
+    "global_art_direction",
+    "motion_designer_verified",
+    "scenes",
 }
 
-FORBIDDEN_CARD_FIELDS = {
+ALLOWED_SCENE_KEYS: Set[str] = {
+    "id",
+    "renderer_id",
+    "chapter",
+    "title",
+    "continuity_group",
+    "narration",
+    "narration_phrases",
+    "visual_intent",
+    "art_direction",
+    "visual_world",
+    "visual_choreography",
+    "text_overlays",
+    "motion_notes",
+}
+
+ALLOWED_ART_KEYS: Set[str] = {
+    "style",
+    "theme",
+    "lighting",
+    "material",
+    "accent_color",
+    "element_budget",
+}
+
+ALLOWED_WORLD_KEYS: Set[str] = {
+    "environment",
+    "stage_continuity",
+    "primary_object",
+    "secondary_objects",
+    "object_labels",
+    "authentic_assets",
+}
+
+ALLOWED_BEAT_KEYS: Set[str] = {
+    "beat",
+    "phrase_anchor",
+    "action",
+    "target",
+    "description",
+    "camera",
+    "shot_scale",
+    "yielding",
+    "payload",
+}
+
+FORBIDDEN_LEGACY_KEYS: Set[str] = {
+    "type",
+    "data",
     "stack_items",
+    "cards",
     "pain_points",
     "magic_points",
     "raw_inputs",
     "distilled_outputs",
+    "before_text",
+    "after_text",
+    "teacher_note",
 }
+
+
+def load_registry_manifest() -> Dict[str, Any]:
+    """加载 templates/src/registry/registry_manifest.json 共享能力注册表"""
+    manifest_path = (
+        Path(__file__).parent.parent / "templates" / "src" / "registry" / "registry_manifest.json"
+    ).resolve()
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Renderer Registry manifest not found: {manifest_path}")
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def normalize_obj_id(obj: Any) -> str:
+    if isinstance(obj, str):
+        return obj.strip()
+    if isinstance(obj, dict):
+        return str(obj.get("id") or obj.get("type") or "").strip()
+    return ""
 
 
 def number_to_chinese_thousands(stars: int) -> str:
@@ -57,22 +131,25 @@ def number_to_chinese_thousands(stars: int) -> str:
     return str(stars)
 
 
-def validate_storyboard_v4(storyboard_path: Path) -> Dict[str, Any]:
+def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
     """
-    v4 分镜 Schema 强校验门禁：
-    - 严禁缺失 storyboard.json 时自动降级生成简化版默认分镜
-    - 强制检查每个镜头的 visual_intent, art_direction, visual_world, visual_choreography
-    - 拦截卡片堆砌字段与超标元素预算
+    v4.1 强执行校验门禁：
+    1. 字段级白名单检查：彻底禁止新旧结构混用（即使存在 visual_choreography，出现 data/cards/type 等旧字段也直接报错）
+    2. 统一元素预算口径：1 个 primary_object + 最多 3 个 secondary_objects = 最多 4 个主要视觉元素 (element_budget <= 4)
+       （注：particle_system 内的粒子实例作为 collective_group 计为 1 个整体视觉元素）
+    3. Renderer Registry 能力验证：检查每个镜头的 renderer_id、environment、primary_object、action、camera 和 payload 是否在注册表中真实支持
+    4. 严格 phrase_anchor 校验：每个动作必须匹配口播原文、严禁重复锚定、顺序必须单调递增
+    5. Hero Scene 样板指定校验：检查 hero_scene_id 是否有效
     """
     if not storyboard_path.exists():
-        print("\n" + "=" * 76)
+        print("\n" + "=" * 78)
         print("[✗] 致命错误: 未找到正式分镜文件 workspace/storyboard.json！")
-        print("    repo-to-video v4 已废除 generate_default_storyboard() 自动降级机制。")
-        print("    请严格按照四角色导演工作流先生成并校验分镜：")
-        print("      1. Agent 1 (Scriptwriter · agents/scriptwriter.md) -> 生成 workspace/script_draft.json")
-        print("      2. Agent 2 (Visual Director · agents/visual_director.md) -> 生成 workspace/storyboard.json")
-        print("    分镜 Schema 规范详见: references/scene-schema.md")
-        print("=" * 76 + "\n")
+        print("    repo-to-video v4.1 严禁自动降级生成简化版默认分镜。")
+        print("    请严格按五阶段流程依次执行：")
+        print("      1. Scriptwriter (agents/scriptwriter.md) -> workspace/script_draft.json")
+        print("      2. Visual Director (agents/visual_director.md) -> workspace/storyboard.json")
+        print("      3. Motion Designer (agents/motion_designer.md) -> 绑定与扩展 Renderer Registry")
+        print("=" * 78 + "\n")
         sys.exit(1)
 
     try:
@@ -81,140 +158,263 @@ def validate_storyboard_v4(storyboard_path: Path) -> Dict[str, Any]:
         print(f"[✗] 分镜 JSON 解析失败 ({storyboard_path}): {e}")
         sys.exit(1)
 
+    manifest = load_registry_manifest()
+    supported_envs = set(manifest.get("supported_environments", {}).keys())
+    supported_cameras = set(manifest.get("supported_cameras", []))
+    renderers_map = {r["id"]: r for r in manifest.get("renderers", [])}
+    budget_policy = manifest.get("element_budget_policy", {})
+    max_total_elements = budget_policy.get("max_total_major_elements", 4)
+    max_sec_objs = budget_policy.get("max_secondary_objects", 3)
+    max_overlays = budget_policy.get("max_text_overlays", 2)
+
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    # 顶层白名单检查
+    unknown_top = set(data.keys()) - ALLOWED_TOP_KEYS
+    if unknown_top:
+        errors.append(f"Storyboard 顶层包含未授权字段: {sorted(unknown_top)}（请使用严格 v4.1 Schema）。")
+
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or len(scenes) == 0:
         print("[✗] 分镜校验失败: 'scenes' 必须是非空数组。")
         sys.exit(1)
 
-    errors: List[str] = []
-    warnings: List[str] = []
-    continuity_groups: List[str] = []
+    scene_ids = [s.get("id") for s in scenes if isinstance(s, dict) and s.get("id")]
+    hero_scene_id = data.get("hero_scene_id")
+    if hero_scene_id and hero_scene_id not in scene_ids:
+        errors.append(f"顶层指定的 hero_scene_id='{hero_scene_id}' 不在 scenes 列表 {scene_ids} 中。")
+    elif not hero_scene_id:
+        warnings.append(
+            "未显式指定顶层 'hero_scene_id'，系统将自动选取动作最丰富的核心机制镜头作为样板审核对象。"
+        )
+
+    from tts_generator import validate_and_locate_phrase_anchors
 
     for idx, scene in enumerate(scenes):
         sid = scene.get("id") or f"scene_{idx + 1}"
         prefix = f"Scene[{idx + 1}:{sid}]"
 
-        # 1. 检查是否退化为旧版卡片模板
-        stype = scene.get("type", "")
-        if stype in FORBIDDEN_LEGACY_CARD_TYPES and not scene.get("visual_choreography"):
+        # 1. 字段级白名单检查（杜绝旧版卡片结构混入）
+        scene_keys = set(scene.keys())
+        forbidden_found = scene_keys.intersection(FORBIDDEN_LEGACY_KEYS)
+        if forbidden_found:
             errors.append(
-                f"{prefix} 使用了已被废弃的平面卡片模板 type='{stype}'，且缺少 visual_choreography。"
+                f"{prefix} 检测到被禁止的旧版卡片/模板字段 {sorted(forbidden_found)}！"
+                f"v4.1 采用严格字段级白名单，严禁新旧结构混用。"
             )
+        unknown_scene_keys = scene_keys - ALLOWED_SCENE_KEYS - FORBIDDEN_LEGACY_KEYS
+        if unknown_scene_keys:
+            errors.append(f"{prefix} 包含未知字段 {sorted(unknown_scene_keys)}。")
 
-        scene_data = scene.get("data") or {}
-        if isinstance(scene_data, dict):
-            legacy_keys = FORBIDDEN_CARD_FIELDS.intersection(scene_data.keys())
-            if legacy_keys and not scene.get("visual_choreography"):
-                errors.append(
-                    f"{prefix} 包含旧版卡片堆砌字段 {sorted(legacy_keys)}，请重构为 visual_world + visual_choreography。"
-                )
-
-        # 2. 检查核心叙事与视觉意图
         narration = (scene.get("narration") or "").strip()
         if not narration:
             errors.append(f"{prefix} 缺少口播文案 'narration'。")
 
         visual_intent = (scene.get("visual_intent") or "").strip()
         if not visual_intent:
-            errors.append(f"{prefix} 缺少 'visual_intent'（必须明确交代本镜头的视觉表达意图）。")
+            errors.append(f"{prefix} 缺少 'visual_intent'。")
 
-        # 3. 检查 art_direction
+        # 2. art_direction 与统一元素预算 (<= 4) 校验
         art = scene.get("art_direction")
         if not isinstance(art, dict):
             errors.append(f"{prefix} 缺少 'art_direction' 对象。")
         else:
+            unknown_art = set(art.keys()) - ALLOWED_ART_KEYS
+            if unknown_art:
+                errors.append(f"{prefix}.art_direction 包含未知字段 {sorted(unknown_art)}。")
             for req_key in ("style", "lighting", "material", "accent_color"):
                 if not art.get(req_key):
                     errors.append(f"{prefix}.art_direction 缺少必填字段 '{req_key}'。")
             accent = str(art.get("accent_color", ""))
             if accent and not re.match(r"^#[0-9A-Fa-f]{6}$", accent):
+                errors.append(f"{prefix}.art_direction.accent_color ('{accent}') 必须是 6 位 HEX 颜色。")
+            budget = art.get("element_budget", max_total_elements)
+            if isinstance(budget, (int, float)) and budget > max_total_elements:
                 errors.append(
-                    f"{prefix}.art_direction.accent_color ('{accent}') 必须是标准 6 位 HEX 颜色（如 '#78A9FF'）。"
-                )
-            budget = art.get("element_budget", 4)
-            if isinstance(budget, (int, float)) and budget > 5:
-                errors.append(
-                    f"{prefix}.art_direction.element_budget={budget} 超出反 PPT 元素预算上限 (<= 5)。"
+                    f"{prefix}.art_direction.element_budget={budget} 超出统一元素预算上限 (<= {max_total_elements}，即 1 主物体 + 最多 3 次要物体)。"
                 )
 
-        # 4. 检查 visual_world
+        # 3. visual_world 与 environment 校验
         world = scene.get("visual_world")
+        primary_id = ""
         if not isinstance(world, dict):
             errors.append(f"{prefix} 缺少 'visual_world' 对象。")
         else:
-            if not world.get("environment"):
-                errors.append(f"{prefix}.visual_world 缺少 'environment'（空间环境定义）。")
-            if not world.get("primary_object"):
-                errors.append(f"{prefix}.visual_world 缺少 'primary_object'（核心实体装置）。")
+            unknown_world = set(world.keys()) - ALLOWED_WORLD_KEYS
+            if unknown_world:
+                errors.append(f"{prefix}.visual_world 包含未知字段 {sorted(unknown_world)}。")
+            env = world.get("environment")
+            if not env:
+                errors.append(f"{prefix}.visual_world 缺少 'environment'。")
+            elif env not in supported_envs:
+                errors.append(
+                    f"{prefix}.visual_world.environment='{env}' 未在 registry_manifest.json 中注册！支持列表: {sorted(supported_envs)}"
+                )
+
+            primary_id = normalize_obj_id(world.get("primary_object"))
+            if not primary_id:
+                errors.append(f"{prefix}.visual_world 缺少有效的 'primary_object'。")
+
             sec_objs = world.get("secondary_objects")
             if not isinstance(sec_objs, list) or len(sec_objs) == 0:
                 errors.append(f"{prefix}.visual_world.secondary_objects 必须是非空列表。")
-            elif len(sec_objs) > 4:
+            elif len(sec_objs) > max_sec_objs:
                 errors.append(
-                    f"{prefix}.visual_world.secondary_objects 数量 ({len(sec_objs)}) 过多，同屏次要物体不得超过 4 个。"
+                    f"{prefix}.visual_world.secondary_objects 数量 ({len(sec_objs)}) 超过上限 ({max_sec_objs})！"
+                    f"加上 1 个主物体后总主要元素不得超过 {max_total_elements} 个（粒子群作为单一集合体计为 1 个元素）。"
                 )
 
-        # 5. 检查 visual_choreography (核心！)
+        # 4. Renderer Registry 匹配与 visual_choreography 能力验证
         choreo = scene.get("visual_choreography")
         if not isinstance(choreo, list) or len(choreo) == 0:
             errors.append(f"{prefix} 缺少 'visual_choreography' 动作节拍序列。")
         else:
+            # 匹配 Renderer
+            explicit_rid = scene.get("renderer_id")
+            matched_renderer = None
+            if explicit_rid:
+                if explicit_rid not in renderers_map:
+                    errors.append(
+                        f"{prefix} 指定的 renderer_id='{explicit_rid}' 未在 Renderer Registry 中注册！可用组件: {sorted(renderers_map.keys())}"
+                    )
+                else:
+                    matched_renderer = renderers_map[explicit_rid]
+            else:
+                # 根据 primary_object 与 actions 查找能力匹配的 Renderer
+                best_r = None
+                best_score = 0
+                for r in renderers_map.values():
+                    score = 0
+                    if primary_id in r["supportedObjects"]:
+                        score += 5
+                    for b in choreo:
+                        if isinstance(b, dict) and b.get("action") in r["supportedActions"]:
+                            score += 3
+                    if score > best_score:
+                        best_score = score
+                        best_r = r
+                matched_renderer = best_r
+                if not matched_renderer:
+                    errors.append(
+                        f"{prefix} 的 primary_object='{primary_id}' 与动作未匹配到任何已注册的 SceneRenderer！"
+                        f"请由 Motion Designer 在 templates/src/registry/ 中开发并注册新组件。"
+                    )
+                else:
+                    scene["renderer_id"] = matched_renderer["id"]
+
+            # 逐个节拍校验字段白名单、action 支持度、camera 支持度、yielding 与 payload
             for b_idx, beat in enumerate(choreo):
                 b_prefix = f"{prefix}.visual_choreography[{b_idx}]"
                 if not isinstance(beat, dict):
                     errors.append(f"{b_prefix} 必须是对象。")
                     continue
-                for b_key in ("beat", "action", "target", "description"):
-                    if not beat.get(b_key):
-                        errors.append(f"{b_prefix} 缺少必填字段 '{b_key}'。")
-                if not beat.get("camera") and b_idx == 0:
-                    warnings.append(f"{b_prefix} 建议显式指定 'camera' 运镜方式（如 'slow_dolly_in'）。")
+                unknown_beat = set(beat.keys()) - ALLOWED_BEAT_KEYS
+                if unknown_beat:
+                    errors.append(f"{b_prefix} 包含未知字段 {sorted(unknown_beat)}。")
 
-        # 6. 检查 text_overlays 克制原则
+                for req_b in ("beat", "phrase_anchor", "action", "target", "description", "camera"):
+                    if not beat.get(req_b):
+                        errors.append(f"{b_prefix} 缺少必填字段 '{req_b}'。")
+
+                act = beat.get("action")
+                if matched_renderer and act and act not in matched_renderer["supportedActions"]:
+                    errors.append(
+                        f"{b_prefix}.action='{act}' 不被渲染组件 '{matched_renderer['id']}' 支持！"
+                        f"该组件支持的动作为: {matched_renderer['supportedActions']}。"
+                        f"请由 Motion Designer 扩展组件能力或切换匹配的 renderer_id。"
+                    )
+
+                cam = beat.get("camera")
+                if cam and cam not in supported_cameras:
+                    errors.append(
+                        f"{b_prefix}.camera='{cam}' 不在受支持的相机运镜列表 {sorted(supported_cameras)} 中。"
+                    )
+
+                if len(choreo) > 1 and not beat.get("yielding"):
+                    errors.append(
+                        f"{b_prefix} 缺少必填的 'yielding'（镜头让位指令）！多节拍镜头必须明确声明非焦点元素如何让位。"
+                    )
+
+                payload = beat.get("payload")
+                if payload is not None:
+                    if not isinstance(payload, dict):
+                        errors.append(f"{b_prefix}.payload 必须是对象。")
+                    elif matched_renderer:
+                        allowed_payload_keys = set(matched_renderer.get("payloadSchema", []))
+                        invalid_p_keys = set(payload.keys()) - allowed_payload_keys
+                        if invalid_p_keys:
+                            errors.append(
+                                f"{b_prefix}.payload 包含组件 '{matched_renderer['id']}' 未消费的参数 {sorted(invalid_p_keys)}！"
+                                f"支持的参数为: {sorted(allowed_payload_keys)}"
+                            )
+
+            # 5. 校验 phrase_anchor 与口播文本的严格匹配与单调顺序
+            if narration:
+                try:
+                    validate_and_locate_phrase_anchors(sid, narration, choreo)
+                except ValueError as ve:
+                    errors.append(str(ve))
+
+        # 6. text_overlays 校验
         overlays = scene.get("text_overlays")
         if overlays is not None:
             if not isinstance(overlays, list):
                 errors.append(f"{prefix}.text_overlays 必须是数组。")
-            elif len(overlays) > 3:
+            elif len(overlays) > max_overlays:
                 errors.append(
-                    f"{prefix}.text_overlays 数量 ({len(overlays)}) 过多，违反反 PPT 极简字幕批注原则 (最多 3 条)。"
+                    f"{prefix}.text_overlays 数量 ({len(overlays)}) 超过上限 ({max_overlays})，严禁在画面堆砌说明文字。"
                 )
-            else:
-                for o_idx, ov in enumerate(overlays):
-                    if isinstance(ov, dict) and len(str(ov.get("text", ""))) > 24:
-                        warnings.append(
-                            f"{prefix}.text_overlays[{o_idx}] 文字过长 ({len(str(ov.get('text', '')))} 字)，建议精炼在 14 字以内。"
-                        )
-
-        cg = scene.get("continuity_group")
-        if cg:
-            continuity_groups.append(f"{sid}({cg})")
 
     if warnings:
-        print("\n[!] 视觉导演规范提示 (Warnings):")
+        print("\n[!] 视觉编排规范提示 (Warnings):")
         for w in warnings:
             print(f"    - {w}")
 
     if errors:
-        print("\n" + "=" * 76)
-        print(f"[✗] 分镜 Schema (v4) 校验未通过，共发现 {len(errors)} 处问题：")
+        print("\n" + "=" * 78)
+        print(f"[✗] v4.1 可执行视觉编排校验未通过，共发现 {len(errors)} 处阻断问题：")
         for err in errors:
             print(f"    ✗ {err}")
-        print("\n请由 Visual Director (agents/visual_director.md) 修复 workspace/storyboard.json 后重试。")
-        print("=" * 76 + "\n")
+        print("\n请由 Visual Director 与 Motion Designer 协同修复 workspace/storyboard.json 后重试。")
+        print("=" * 78 + "\n")
         sys.exit(1)
 
-    print(f"[✓] v4 Visual Choreography 分镜校验通过! 共 {len(scenes)} 个镜头。")
-    if continuity_groups:
-        print(f"[✓] 连续空间叙事编组: {' -> '.join(continuity_groups)}")
+    # 若写回了自动解析的 renderer_id，保存更新
+    storyboard_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[✓] v4.1 可执行视觉编排与 Renderer Registry 校验通过! 共 {len(scenes)} 个镜头。")
     return data
 
 
+def select_hero_scene(scenes: List[Dict[str, Any]], explicit_hero_id: str = None) -> Dict[str, Any]:
+    """
+    选取最具代表性的核心机制样板镜头 (Hero Scene)：
+    优先使用 Visual Director 显式指定的 hero_scene_id；
+    若未指定，自动选择非纯排版类、动作节拍最丰富的核心机制镜头（而非机械选择第 1 幕开场标题）。
+    """
+    if explicit_hero_id:
+        for s in scenes:
+            if s.get("id") == explicit_hero_id:
+                return s
+
+    best_scene = scenes[0]
+    best_score = -1
+    for s in scenes:
+        rid = s.get("renderer_id", "")
+        beats_count = len(s.get("visual_choreography") or [])
+        score = beats_count * 10
+        if rid in ("PhysicalSimulation", "MechanicalStructure", "DataFlow"):
+            score += 25
+        elif rid == "KineticTypography":
+            score -= 30
+        if score > best_score:
+            best_score = score
+            best_scene = s
+    return best_scene
+
+
 def audit_storyboard_facts(profile: dict, storyboard_path: Path):
-    """
-    强制文案数字审查门禁：
-    核验分镜剧本中的 GitHub Star 数等关键指标是否与 GitHub API 实时数据一致。
-    """
+    """核验分镜剧本中的 GitHub Star 数等关键指标是否与 GitHub API 实时数据一致"""
     gh = profile.get("github_stats") or {}
     stars = gh.get("stars")
     stars_fmt = gh.get("stars_formatted")
@@ -239,13 +439,13 @@ def audit_storyboard_facts(profile: dict, storyboard_path: Path):
 
     if fixes > 0:
         storyboard_path.write_text(updated_text, encoding="utf-8")
-        print(f"[!] 文案审查门禁拦截并修正了 {fixes} 处过时 Star 数字 -> 已更新为实时数据: {stars_fmt} ({cn_stars}颗星)")
+        print(f"[!] 文案审查门禁修正了 {fixes} 处过时 Star 数字 -> {stars_fmt}")
     else:
         print(f"[✓] 文案数字审查通过: 当前实时 Star 数为 {stars:,} ({stars_fmt})")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="repo-to-video v4 Visual Director build runner")
+    parser = argparse.ArgumentParser(description="repo-to-video v4.1 Executable Visual Choreography runner")
     parser.add_argument("--repo", required=True, help="Target repository directory or URL")
     parser.add_argument("--workspace", default="workspace", help="Workspace folder for assets")
     parser.add_argument("--tts-url", default="http://192.168.8.106:8712/tts", help="Index-TTS URL")
@@ -254,14 +454,16 @@ def main():
     parser.add_argument("--speed", type=float, default=0.9, help="Speech speed factor (default: 0.9)")
     parser.add_argument("--fps", type=int, default=30, help="Target FPS")
     parser.add_argument(
+        "--hero-shot",
         "--first-shot",
+        dest="hero_shot",
         action="store_true",
-        help="First Shot Approval mode: build & render only the 1st benchmark shot (out/first_shot.mp4) and keyframe sheet",
+        help="Hero Shot Approval mode: build & render the designated hero_scene_id benchmark shot first",
     )
     parser.add_argument("--pilot", action="store_true", help="Build only the pilot cut (~30s preview)")
     parser.add_argument("--pilot-scenes", type=int, default=3, help="Max scenes to include in pilot preview")
     parser.add_argument("--render-pilot", action="store_true", help="Render out/pilot.mp4 automatically")
-    parser.add_argument("--run-qa", action="store_true", help="Run visual_qa.py Contact Sheet & motion audit after build")
+    parser.add_argument("--run-qa", action="store_true", help="Run 4-layer visual_qa.py after build")
     args = parser.parse_args()
 
     workspace_dir = Path(args.workspace).resolve()
@@ -270,28 +472,33 @@ def main():
     audio_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. 扫描仓库
-    print("\n=== [1/4] 分析目标仓库与实时 GitHub 数据核查 ===")
+    print("\n=== [1/5] 分析目标仓库与实时 GitHub 数据核查 ===")
     from analyze_repo import analyze_repository
     profile = analyze_repository(args.repo)
     profile_path = workspace_dir / "repo_profile.json"
     profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[+] 项目类型判定: {profile['type']}")
 
-    # 2. 严格校验 v4 分镜剧本（无正式分镜立即终止，绝不自动生成简化模板）
-    print("\n=== [2/4] 校验 v4 视觉导演分镜剧本 (storyboard.json) ===")
+    # 2. 严格执行 v4.1 字段级白名单与 Renderer Registry 能力校验
+    print("\n=== [2/5] 执行 v4.1 分镜白名单、Renderer Registry 与动作锚点校验 ===")
     storyboard_path = workspace_dir / "storyboard.json"
-    validate_storyboard_v4(storyboard_path)
+    storyboard_data = validate_storyboard_v4_1(storyboard_path)
     audit_storyboard_facts(profile, storyboard_path)
 
-    # 3. 语音合成与短语级/节拍级时间锚点对齐
-    print(f"\n=== [3/4] 局域网 Index-TTS 配音与短语级时间锚点对齐 (语速: {args.speed}x) ===")
+    # 确定代表性样板镜头 (Hero Scene)
+    hero_scene_obj = select_hero_scene(
+        storyboard_data["scenes"], storyboard_data.get("hero_scene_id")
+    )
+    hero_scene_id = hero_scene_obj["id"]
+    print(
+        f"[+] 选定代表性样板审核镜头 (Hero Shot): '{hero_scene_id}' (Renderer: {hero_scene_obj.get('renderer_id')})"
+    )
+
+    # 3. 语音合成与双层时间锚点对齐
+    print(f"\n=== [3/5] 短语级分段配音与声学强制对齐 (语速: {args.speed}x) ===")
     from tts_generator import process_storyboard
-    if args.first_shot:
-        max_scenes = 1
-    elif args.pilot:
-        max_scenes = args.pilot_scenes
-    else:
-        max_scenes = None
+    target_sid = hero_scene_id if args.hero_shot else None
+    max_scenes = args.pilot_scenes if (args.pilot and not args.hero_shot) else None
 
     process_storyboard(
         storyboard_path=str(storyboard_path),
@@ -302,27 +509,34 @@ def main():
         speed=args.speed,
         fps=args.fps,
         allow_fallback=True,
-        max_scenes=max_scenes
+        max_scenes=max_scenes,
+        target_scene_id=target_sid,
     )
 
-    # 4. 组装 Remotion 配置
-    print("\n=== [4/4] 组装 Remotion 渲染参数 (build_props.json) ===")
+    # 4. 组装 Remotion 配置与 Motion Plan
+    print("\n=== [4/5] 组装可执行视觉编排配置 (build_props.json & motion_plan.json) ===")
     storyboard_data = json.loads(storyboard_path.read_text(encoding="utf-8"))
     durations_data = json.loads((audio_dir / "durations.json").read_text(encoding="utf-8"))
+    dur_by_id = {d["scene_id"]: d for d in durations_data["scenes"]}
 
-    # 自动将音频同步到模板与工作区的 public/audio 目录以供 staticFile 读取
-    for target_pub in [Path("public/audio").resolve(), (Path(__file__).parent.parent / "templates" / "public" / "audio").resolve()]:
+    for target_pub in [
+        Path("public/audio").resolve(),
+        (Path(__file__).parent.parent / "templates" / "public" / "audio").resolve(),
+    ]:
         target_pub.mkdir(parents=True, exist_ok=True)
         for wav_file in audio_dir.glob("*.wav"):
             shutil.copy2(wav_file, target_pub / wav_file.name)
 
     assembled_scenes = []
-    source_scenes = storyboard_data["scenes"][:len(durations_data["scenes"])]
-    for s, dur in zip(source_scenes, durations_data["scenes"]):
-        scene_type = s.get("type") or ("choreographed_v4" if s.get("visual_choreography") else "title_card")
+    motion_plan_entries = []
+    for s in storyboard_data["scenes"]:
+        sid = s["id"]
+        if sid not in dur_by_id:
+            continue
+        dur = dur_by_id[sid]
         assembled_scenes.append({
             **s,
-            "type": scene_type,
+            "type": "choreographed_v4",
             "durationInFrames": dur["frame_count"],
             "audioFrames": int(round(dur["duration_sec"] * args.fps)),
             "durationSec": dur["duration_sec"],
@@ -332,31 +546,45 @@ def main():
             "word_timings": dur.get("word_timings", []),
             "beat_timings": dur.get("beat_timings", []),
         })
+        motion_plan_entries.append({
+            "scene_id": sid,
+            "renderer_id": s.get("renderer_id"),
+            "environment": (s.get("visual_world") or {}).get("environment"),
+            "primary_object": normalize_obj_id((s.get("visual_world") or {}).get("primary_object")),
+            "beats": dur.get("beat_timings", []),
+            "timing_warnings": dur.get("timing_warnings", []),
+        })
+
+    motion_plan_path = workspace_dir / "motion_plan.json"
+    motion_plan_path.write_text(
+        json.dumps(
+            {
+                "version": "4.1",
+                "hero_scene_id": hero_scene_id,
+                "scenes": motion_plan_entries,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    print(f"[+] Motion Designer 执行计划已生成: {motion_plan_path}")
 
     global_art_direction = storyboard_data.get("global_art_direction") or {
         "aesthetic": "Premium Editorial Tech Explainer",
         "default_theme": "dark_cinematic",
-        "palette": {
-            "background_dark": "#0B0D12",
-            "background_light": "#F6F5F0",
-            "surface_dark": "#131722",
-            "surface_light": "#FFFFFF",
-            "text_primary_dark": "#F3F4F6",
-            "text_primary_light": "#111318",
-            "muted": "#8B95A5",
-            "primary_accent": "#78A9FF",
-        },
         "lighting_preset": "soft_studio",
         "camera_philosophy": "continuous_narrative_flow",
         "max_element_budget": 4,
     }
 
     build_props = {
-        "schemaVersion": storyboard_data.get("schema_version", "4.0"),
+        "schemaVersion": "4.1",
         "title": storyboard_data.get("video_title") or profile.get("readme_title", profile["name"]),
         "repoName": storyboard_data.get("repo_name") or profile["name"],
         "repoUrl": storyboard_data.get("repo_url") or profile.get("repo_path", ""),
         "repoType": storyboard_data.get("repo_type") or profile["type"],
+        "heroSceneId": hero_scene_id,
         "chapters": storyboard_data.get("chapters", []),
         "globalArtDirection": global_art_direction,
         "fps": args.fps,
@@ -367,68 +595,49 @@ def main():
     props_path = workspace_dir / "build_props.json"
     props_path.write_text(json.dumps(build_props, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[+] Remotion 配置文件构建完成: {props_path}")
-    print(f"[+] 视频总帧数: {durations_data['total_frames']} 帧 ({durations_data['total_seconds']} 秒)")
 
-    # 生成首镜样板配置 (First Shot Approval)
-    if assembled_scenes:
-        first_scene = assembled_scenes[0]
-        first_shot_props = {
+    # 生成代表性样板镜头配置 (Hero Shot Approval)
+    hero_assembled = next(
+        (s for s in assembled_scenes if s["id"] == hero_scene_id),
+        assembled_scenes[0] if assembled_scenes else None,
+    )
+    if hero_assembled:
+        hero_shot_props = {
             **build_props,
-            "totalFrames": first_scene.get("durationInFrames", 120),
-            "scenes": [first_scene],
+            "totalFrames": hero_assembled.get("durationInFrames", 150),
+            "scenes": [hero_assembled],
         }
+        hero_shot_path = workspace_dir / "build_props.hero_shot.json"
         first_shot_path = workspace_dir / "build_props.first_shot.json"
-        first_shot_path.write_text(json.dumps(first_shot_props, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"[+] 首镜样板审核 (First Shot) 配置已生成: {first_shot_path} ({first_scene['id']})")
+        hero_json = json.dumps(hero_shot_props, ensure_ascii=False, indent=2)
+        hero_shot_path.write_text(hero_json, encoding="utf-8")
+        first_shot_path.write_text(hero_json, encoding="utf-8")
+        print(f"[+] Hero Shot 样板审核配置已生成: {hero_shot_path} (镜头: {hero_assembled['id']})")
 
-    # 生成 30 秒先导样片 (Pilot Checkpoint) 配置
-    pilot_scenes = []
-    pilot_frames = 0
-    for s in assembled_scenes:
-        dur = s.get("durationInFrames", 90)
-        if pilot_scenes and (pilot_frames + dur > 960 or len(pilot_scenes) >= args.pilot_scenes):
-            break
-        pilot_scenes.append(s)
-        pilot_frames += dur
-
-    pilot_props = {
-        **build_props,
-        "totalFrames": pilot_frames,
-        "scenes": pilot_scenes,
-    }
-    pilot_props_path = workspace_dir / "build_props.pilot.json"
-    pilot_props_path.write_text(json.dumps(pilot_props, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    if args.first_shot:
-        print("\n🎬 [First Shot Approval] 正在执行首镜样板渲染与关键帧抽样审核...")
+    if args.hero_shot:
+        print(f"\n=== [5/5] [Hero Shot Approval] 渲染代表性样板镜头 ({hero_scene_id}) 并执行四层 QA ===")
         from visual_qa import run_visual_qa
         qa_dir = Path("out/qa").resolve()
         run_visual_qa(
-            props_path=first_shot_path,
+            props_path=workspace_dir / "build_props.hero_shot.json",
             output_dir=qa_dir,
-            mode="first-shot",
-            render_video_out=Path("out/first_shot.mp4").resolve()
+            mode="hero-shot",
+            render_video_out=Path("out/hero_shot.mp4").resolve(),
         )
-        print("\n✅ 首镜样板已生成！请审核 out/first_shot.mp4 与 out/qa/first_shot_sheet.png 确认全片视觉基准。")
+        print("\n✅ 代表性样板镜头已生成！请检查 out/hero_shot.mp4 与 out/qa/hero_shot_sheet.png。")
         return
 
-    if args.render_pilot:
-        print("\n🎬 正在快速渲染 30 秒先导片: out/pilot.mp4 ...")
-        render_cmd = f"npx remotion render src/index.ts PilotVideo out/pilot.mp4 --props={pilot_props_path}"
-        subprocess.run(render_cmd, shell=True, check=True)
-        print("✅ 先导片导出成功: out/pilot.mp4！")
-
     if args.run_qa:
-        print("\n🔍 正在执行全片 Contact Sheet 与连续帧视觉 QA 验收...")
+        print("\n=== [5/5] 正在执行全片四层视觉 QA (Schema + Render + Motion + Semantic QA) ===")
         from visual_qa import run_visual_qa
         qa_dir = Path("out/qa").resolve()
         run_visual_qa(
             props_path=props_path,
             output_dir=qa_dir,
-            mode="full"
+            mode="full",
         )
 
-    print("\n✨ 构建准备完毕！建议先通过 First Shot Approval 或运行 scripts/visual_qa.py 完成视觉验收。")
+    print("\n✨ v4.1 全流程构建准备完毕！")
 
 
 if __name__ == "__main__":

@@ -1,78 +1,37 @@
-# 教程视频分镜设计规范 (Storyboard Framework)
+# 视觉演示视频叙事与导演框架 (Storyboard & Direction Framework v4)
 
-制作开发者向 GitHub 项目教程视频，最忌讳的是“按部就班照着 README 念经”。视频的前 15 秒决定了 70% 的留存率。本规范制定了两种不同项目类型的黄金分镜模型。
-
----
-
-## 模式 A：可运行项目 (RUNNABLE) —— 5步递进实操法
-
-目标受众：想要跑起来看效果、或者想研究其工程架构的开发者。
-
-### 场景 1: Hook & Demo (痛点与最终效果)
-- **视觉类型**：`browser` 或 `split_view`
-- **画面**：直接展示跑通后的产品界面、动画或 CLI 输出，突出一个“帅”或“省事”。
-- **文案要点**：直接抛出核心卖点。“只需一行命令，就能实现..." / "今天带大家深度体验这个火爆 GitHub 的开源神器..."
-- **时长**：10~18秒
-
-### 场景 2: 架构与技术选型 (Why & Architecture)
-- **视觉类型**：`code_focus` 或 `architecture_diagram`
-- **画面**：架构流程图、依赖栈（React/FastAPI/SQLite/Docker）。
-- **文案要点**：介绍它背后的设计理念，为什么它比传统方案更好用。
-- **时长**：20~35秒
-
-### 场景 3: 保姆级上手部署 (Quickstart)
-- **视觉类型**：`terminal` (macOS 风格终端窗口)
-- **画面**：`git clone` -> `pnpm install` -> 配置 `.env` -> `pnpm dev`。
-- **文案要点**：避坑提示（Node/Python版本要求、环境变量必须填哪些）。
-- **时长**：30~60秒
-
-### 场景 4: 核心代码精读 (Code Deep Dive)
-- **视觉类型**：`code_focus` (语法高亮、代码聚焦行、平滑缩放)
-- **画面**：展示核心算法逻辑（如 Agent 调用链、流式解析、Prompt 组装）。
-- **文案要点**：剖析最精妙的 1~2 个函数，让观众学到硬核编程思想。
-- **时长**：45~75秒
-
-### 场景 5: 总结与行动号召 (Outro & CTA)
-- **视觉类型**：`title_card` / `outro`
-- **画面**：项目 GitHub 仓库页，Star 按钮动效，项目链接二维码。
-- **文案要点**：总结该项目适合用于什么场景，引导 Star/Fork 与关注点赞。
-- **时长**：10~15秒
+制作 GitHub 项目技术深度讲解视频，最忌讳的是「照着 README 念经 + 往卡片模板里填字」。本规范基于 `repo-to-video` v4 的六大核心原则，定义了从叙事编排到视觉导演的标准结构。
 
 ---
 
-## 模式 B：Skill / Agent 项目 (SKILL) —— 痛点对比降维法
+## 一、 核心叙事与导演递进模型
 
-目标受众：关注 AI Agent 落地、提示词工程、自动化技能打造的开发者。
-**核心难点**：Skill 项目通常没有现成的 Web UI，往往只是一堆 Markdown 规范与 Python 脚本。如果光读 Markdown，观众会直接划走。
+无论目标仓库是可运行工程（`RUNNABLE`）还是智能体技能/规范库（`SKILL`），全片均遵循 **「问题物理化 ➔ 核心机制连续拆解 ➔ 真实代码/界面验证 ➔ 总结收束」** 的导演结构：
 
-### 场景 1: 痛点对比 Hook (Before vs After)
-- **视觉类型**：`compare` (左右双栏对比)
-- **画面**：
-  - 左边（红色/灰暗）：原生大模型遇到复杂任务时的胡言乱语、漏步骤、幻觉。
-  - 右边（绿色/科技感）：挂载本 Skill 后，Agent 有条不紊地思考、调用工具、交付工业级成果。
-- **文案要点**：“你是否也遇到过 AI 编程时胡写乱改代码？今天这个开源 Skill 彻底改变了 Agent 的工作流...”
-- **时长**：15~25秒
+### 第 1 幕：痛点具象化与首镜定调（First Shot Benchmark）
+- **视觉模态**：`light_editorial`（浅色编辑风）或 `dark_cinematic`（深色电影风）
+- **核心实体**：`physical_balance_stage` 或 `authentic_ui_showcase`
+- **导演编排**：
+  - Beat 1：展示传统方案在面对高并发/海量信息时的结构超载或失控状态（`overload_collapse`），摄像机从全景缓慢推进（`slow_dolly_in`）。
+  - Beat 2：引入目标项目的核心机制，多余元素退后让位（`yielding`），精准提取目标实体（`precision_extract`），摄像机推至特写定格。
+- **验收要求**：本镜头作为 **First Shot Approval（首镜样板审核）** 的基准镜头，必须先单独渲染通过验收后再批量制作后续镜头。
 
-### 场景 2: Skill 解剖 (Anatomy)
-- **视觉类型**：`code_focus`
-- **画面**：高亮 `SKILL.md` 的 YAML frontmatter、触发机制 (`when to use`) 与渐进披露结构。
-- **文案要点**：剖析为什么这个 Skill 能够被 AI 精准唤醒，它的上下文防膨胀机制是什么。
-- **时长**：25~45秒
+### 第 2 ~ 4 幕：核心机制连续视觉拆解（Continuous Mechanism Choreography）
+- **视觉模态**：`mechanism_3d` / `premium_3d_editorial`
+- **连续性设计**：
+  - 将紧密关联的 2~3 个技术阶段归入同一个 `continuity_group`（如 `core_engine_chamber`），保持同一三维物理空间；
+  - 随讲解深入，依次调度 `3d_filter_machine`（过滤提纯）、`layered_architecture`（Z轴分层拆解与总线贯通）、`state_timeline_track`（时间轴印章演进）或 `multi_probe_router`（多路信号探针汇聚）；
+  - 通过改变景别（`wide` ➔ `medium` ➔ `close_up` ➔ `macro`）和焦点让位来推进叙事，而不是生硬切换背景模板。
 
-### 场景 3: 实机运行演示 (Live IDE Simulation)
-- **视觉类型**：`terminal`
-- **画面**：模拟在 Antigravity / Claude Code 中输入指令，观测 Agent 自动挂载 Skill 并分步执行。
-- **文案要点**：逐步解说 Agent 在背景下的执行链路。
-- **时长**：40~60秒
+### 第 5 幕：真实产品与代码实操验证（Authentic Assets Showcase）
+- **视觉模态**：`product_demo`（真实素材优先）
+- **核心实体**：`authentic_code_viewport` / `authentic_terminal_bench` / `authentic_ui_showcase`
+- **导演编排**：
+  - 直接调取仓库中的真实源码文件、真实 CLI 命令与运行输出（写入 `visual_world.authentic_assets`）；
+  - Beat 1：展开真实工作区视口（`reveal_ui`）；
+  - Beat 2：聚焦高亮最关键的 2~4 行核心调用代码，其余代码行自动降低不透明度至 30% 让位（`highlight_code`）；
+  - Beat 3：执行真实终端命令并呈现响应指标（`type_command` ➔ `execute_output`）。
 
-### 场景 4: 拓展改装教学 (Customization)
-- **视觉类型**：`code_focus`
-- **画面**：如何修改该 Skill 中的 prompts、如何添加辅助脚本。
-- **文案要点**：教会观众举一反三，将其改编成适应自己业务的专属技能。
-- **时长**：25~40秒
-
-### 场景 5: 一键安装与获取 (Installation & Outro)
-- **视觉类型**：`title_card` / `terminal`
-- **画面**：一行命令克隆到 `.agents/skills/`，或者从 `skillhub` 商店安装。
-- **文案要点**：项目开源地址与结语。
-- **时长**：10~15秒
+### 第 6 幕：核心收益收束与开源指引（Editorial Outro）
+- **视觉模态**：与首镜呼应的 `dark_cinematic` 或 `light_editorial`
+- **导演编排**：核心架构晶体平稳合体（`assemble`），浮现项目真实仓库地址与核心实测指标。

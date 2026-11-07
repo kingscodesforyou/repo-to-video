@@ -1,15 +1,17 @@
 {
   "name": "remotionagent",
-  "version": "1.0.0",
-  "description": "Automated GitHub repo tutorial video generator with Remotion and Index-TTS",
+  "version": "4.0.0",
+  "description": "repo-to-video v4 Visual Director & Choreographed Motion Engine",
   "main": "src/index.ts",
   "scripts": {
     "dev": "remotion preview src/index.ts",
     "preview": "remotion preview src/index.ts",
     "render": "remotion render src/index.ts TutorialVideo out/video.mp4",
     "render:props": "remotion render src/index.ts TutorialVideo out/video.mp4 --props=workspace/build_props.json",
+    "render:first-shot": "remotion render src/index.ts FirstShotVideo out/first_shot.mp4 --props=workspace/build_props.first_shot.json",
     "render:pilot": "remotion render src/index.ts PilotVideo out/pilot.mp4 --props=workspace/build_props.pilot.json",
     "still": "remotion still src/index.ts TutorialVideo out/cover.png --frame=60",
+    "still:first-shot": "remotion still src/index.ts FirstShotVideo out/first_shot_preview.png --frame=45",
     "still:pilot": "remotion still src/index.ts PilotVideo out/pilot_preview.png --frame=45"
   },
   "keywords": [],

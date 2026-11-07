@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-tts_generator.py - 调用局域网 Index-TTS 服务生成场景配音、语速调节（默认 0.9x 放慢 1/10）与精准音画时间轴
+tts_generator.py (v4) - 调用局域网 Index-TTS 服务生成场景配音、语速调节（默认 0.9x）
+并提取短语级/字级时间锚点 (phrase_timings / word_timings) 与 visual_choreography 节拍帧区间 (beat_timings)。
 """
 
 import os
+import re
 import sys
 import json
-import struct
 import math
 import shutil
 import subprocess
 import argparse
 from pathlib import Path
+from typing import List, Dict, Any
 
 try:
     import requests
@@ -52,6 +54,271 @@ def get_wav_duration_seconds(wav_path: str) -> float:
     samples = data_size / bytes_per_sample
     duration = samples / float(fmt_rate)
     return duration
+
+
+def spoken_weight(text: str) -> float:
+    """计算口播语速权重：汉字记 1.0，英文词记 1.6，标点停顿附加权重"""
+    if not text:
+        return 1.0
+    english_tokens = re.findall(r"[A-Za-z0-9]+", text)
+    cjk_chars = re.sub(r"[A-Za-z0-9\s\W_]", "", text)
+    pauses = len(re.findall(r"[，。！？；：、,.!?;:]", text)) * 0.45
+    return max(0.8, len(cjk_chars) * 1.0 + len(english_tokens) * 1.6 + pauses)
+
+
+def split_into_phrases(narration: str) -> List[str]:
+    """将口播按标点切分为自然语义短语"""
+    raw_clauses = re.split(r"(?<=[，。！？；：、,.!?;:])", narration.strip())
+    phrases = []
+    buf = ""
+    for clause in raw_clauses:
+        c = clause.strip()
+        if not c:
+            continue
+        if len(buf) + len(c) <= 10 and not re.search(r"[。！？.!?]$", buf):
+            buf += c
+        else:
+            if buf:
+                phrases.append(buf)
+            buf = c
+    if buf:
+        phrases.append(buf)
+    return phrases if phrases else [narration.strip()]
+
+
+def detect_wav_pause_anchors(wav_path: str, expected_ratios: List[float], duration: float) -> List[float]:
+    """
+    扫描 16-bit PCM WAV 能量包络，在预期比例点附近 (±12% 时长窗口) 寻找真实语音停顿低谷，
+    使短语时间锚点与真实发音停顿精确对齐。
+    """
+    if not expected_ratios or duration <= 0.5:
+        return [round(r * duration, 3) for r in expected_ratios]
+
+    try:
+        data = Path(wav_path).read_bytes()
+        if len(data) < 100 or data[:4] != b"RIFF":
+            return [round(r * duration, 3) for r in expected_ratios]
+
+        pos = 12
+        fmt_channels = 1
+        fmt_rate = 24000
+        fmt_bits = 16
+        pcm_offset = 44
+        pcm_size = len(data) - 44
+
+        while pos < len(data) - 8:
+            chunk_id = data[pos:pos+4]
+            chunk_size = int.from_bytes(data[pos+4:pos+8], "little")
+            if chunk_id == b"fmt ":
+                fmt_channels = int.from_bytes(data[pos+10:pos+12], "little")
+                fmt_rate = int.from_bytes(data[pos+12:pos+16], "little")
+                fmt_bits = int.from_bytes(data[pos+22:pos+24], "little")
+            elif chunk_id == b"data":
+                pcm_offset = pos + 8
+                pcm_size = min(chunk_size, len(data) - pcm_offset)
+                break
+            pos += 8 + chunk_size
+
+        if fmt_bits != 16 or pcm_size <= 0:
+            return [round(r * duration, 3) for r in expected_ratios]
+
+        # 以 20ms 为一帧计算平均绝对振幅包络
+        win_sec = 0.02
+        bytes_per_frame = max(2, fmt_channels * 2)
+        samples_per_win = max(1, int(fmt_rate * win_sec))
+        step_bytes = samples_per_win * bytes_per_frame
+        energies = []
+        raw_pcm = memoryview(data)[pcm_offset:pcm_offset + pcm_size]
+
+        for offset in range(0, len(raw_pcm) - step_bytes, step_bytes):
+            chunk = raw_pcm[offset:offset + step_bytes]
+            # 抽样计算平均振幅
+            stride = max(2, (len(chunk) // 64) & ~1)
+            total_amp = 0
+            count = 0
+            for j in range(0, len(chunk) - 1, stride):
+                val = int.from_bytes(chunk[j:j+2], "little", signed=True)
+                total_amp += abs(val)
+                count += 1
+            energies.append(total_amp / max(1, count))
+
+        if len(energies) < 10:
+            return [round(r * duration, 3) for r in expected_ratios]
+
+        refined_times = []
+        last_idx = 0
+        n_wins = len(energies)
+        for ratio in expected_ratios:
+            center_idx = int(ratio * n_wins)
+            radius = max(2, int(0.08 * n_wins))
+            lo = max(last_idx + 2, center_idx - radius)
+            hi = min(n_wins - 2, center_idx + radius)
+            if lo >= hi:
+                best_idx = max(last_idx + 1, min(n_wins - 1, center_idx))
+            else:
+                # 寻找能量最低且距离预期中心不远的停顿点
+                best_idx = center_idx
+                best_score = float("inf")
+                max_e = max(energies[lo:hi+1]) or 1.0
+                for idx in range(lo, hi + 1):
+                    dist_penalty = abs(idx - center_idx) / max(1.0, float(radius)) * 0.25
+                    norm_e = energies[idx] / max_e
+                    score = norm_e + dist_penalty
+                    if score < best_score:
+                        best_score = score
+                        best_idx = idx
+            last_idx = best_idx
+            refined_times.append(round((best_idx / float(n_wins)) * duration, 3))
+
+        return refined_times
+    except Exception:
+        return [round(r * duration, 3) for r in expected_ratios]
+
+
+def compute_phrase_and_beat_timings(
+    scene: Dict[str, Any],
+    wav_path: str,
+    duration_sec: float,
+    total_scene_frames: int,
+    fps: int = 30
+) -> Dict[str, Any]:
+    """
+    计算短语级时间锚点 (phrase_timings)、词/字级时间锚点 (word_timings)
+    以及与 visual_choreography 对齐的动作节拍帧区间 (beat_timings)。
+    """
+    narration = (scene.get("narration") or "").strip()
+    custom_phrases = scene.get("narration_phrases")
+    if isinstance(custom_phrases, list) and len(custom_phrases) > 0:
+        phrases = [
+            p.get("phrase", "").strip() if isinstance(p, dict) else str(p).strip()
+            for p in custom_phrases
+        ]
+        phrases = [p for p in phrases if p]
+    else:
+        phrases = split_into_phrases(narration)
+
+    if not phrases:
+        phrases = [""]
+
+    weights = [spoken_weight(p) for p in phrases]
+    total_w = sum(weights) or 1.0
+
+    cum_ratios = []
+    acc_w = 0.0
+    for w in weights[:-1]:
+        acc_w += w
+        cum_ratios.append(acc_w / total_w)
+
+    boundary_secs = detect_wav_pause_anchors(wav_path, cum_ratios, duration_sec)
+    starts = [0.0] + boundary_secs
+    ends = boundary_secs + [round(duration_sec, 3)]
+
+    phrase_timings = []
+    word_timings = []
+
+    for i, phrase_text in enumerate(phrases):
+        s_sec = starts[i]
+        e_sec = max(s_sec + 0.08, ends[i])
+        s_frame = int(round(s_sec * fps))
+        e_frame = int(round(e_sec * fps)) if i < len(phrases) - 1 else max(int(round(e_sec * fps)), total_scene_frames - 6)
+        Clean_text = re.sub(r"[，。；：、,;:]\s*$", "", phrase_text)
+
+        phrase_timings.append({
+            "index": i,
+            "text": Clean_text,
+            "raw_text": phrase_text,
+            "start_sec": round(s_sec, 3),
+            "end_sec": round(e_sec, 3),
+            "start_frame": s_frame,
+            "end_frame": e_frame,
+        })
+
+        # 生成细粒度字/词级时间锚点 (word_timings)
+        tokens = re.findall(r"[A-Za-z0-9_.-]+|[\u4e00-\u9fff]", Clean_text)
+        if tokens:
+            t_weights = [1.6 if re.match(r"^[A-Za-z0-9_.-]+$", tk) else 1.0 for tk in tokens]
+            tw_sum = sum(t_weights) or 1.0
+            t_acc = 0.0
+            span_sec = e_sec - s_sec
+            for tk, tw in zip(tokens, t_weights):
+                w_start = s_sec + (t_acc / tw_sum) * span_sec
+                t_acc += tw
+                w_end = s_sec + (t_acc / tw_sum) * span_sec
+                word_timings.append({
+                    "word": tk,
+                    "phrase_index": i,
+                    "start_sec": round(w_start, 3),
+                    "end_sec": round(w_end, 3),
+                    "start_frame": int(round(w_start * fps)),
+                    "end_frame": int(round(w_end * fps)),
+                })
+
+    # 将 visual_choreography 中的每个 beat 锚定到精确的帧窗口
+    choreography = scene.get("visual_choreography") or []
+    beat_timings = []
+    n_beats = len(choreography)
+
+    if n_beats > 0:
+        matched_phrase_indices = []
+        for b_idx, beat in enumerate(choreography):
+            anchor = (beat.get("phrase_anchor") or "").strip()
+            best_p_idx = None
+            if anchor:
+                norm_anchor = re.sub(r"\W+", "", anchor)
+                for p in phrase_timings:
+                    norm_p = re.sub(r"\W+", "", p["raw_text"])
+                    if norm_anchor and (norm_anchor in norm_p or norm_p in norm_anchor):
+                        best_p_idx = p["index"]
+                        break
+            if best_p_idx is None:
+                # 按序映射到对应比例的短语索引
+                best_p_idx = min(len(phrase_timings) - 1, int(round(b_idx * len(phrase_timings) / max(1, n_beats))))
+            matched_phrase_indices.append(best_p_idx)
+
+        # 确保节拍起止帧单调递增且完整覆盖整个镜头时长，不留死寂空白帧
+        for b_idx, beat in enumerate(choreography):
+            if b_idx == 0:
+                b_start_frame = 0
+                b_start_sec = 0.0
+            else:
+                b_start_frame = beat_timings[-1]["end_frame"]
+                b_start_sec = beat_timings[-1]["end_sec"]
+
+            if b_idx == n_beats - 1:
+                b_end_frame = total_scene_frames
+                b_end_sec = round(total_scene_frames / float(fps), 3)
+            else:
+                next_p_idx = matched_phrase_indices[b_idx + 1]
+                cur_p_idx = matched_phrase_indices[b_idx]
+                if next_p_idx > cur_p_idx:
+                    cand_frame = phrase_timings[next_p_idx]["start_frame"]
+                else:
+                    cand_frame = int(round(((b_idx + 1) / float(n_beats)) * (total_scene_frames - 6)))
+                min_step = max(15, int(total_scene_frames / (n_beats * 2.5)))
+                max_allowed = total_scene_frames - (n_beats - 1 - b_idx) * min_step
+                b_end_frame = max(b_start_frame + min_step, min(max_allowed, cand_frame))
+                b_end_sec = round(b_end_frame / float(fps), 3)
+
+            beat_timings.append({
+                "beat_index": b_idx,
+                "beat": beat.get("beat", f"beat_{b_idx + 1}"),
+                "action": beat.get("action", "transform"),
+                "target": beat.get("target", ""),
+                "camera": beat.get("camera", "steady_hold"),
+                "shot_scale": beat.get("shot_scale", "medium"),
+                "phrase_anchor": beat.get("phrase_anchor", ""),
+                "start_frame": b_start_frame,
+                "end_frame": b_end_frame,
+                "mid_frame": (b_start_frame + b_end_frame) // 2,
+                "start_sec": b_start_sec,
+                "end_sec": b_end_sec,
+            })
+
+    return {
+        "phrase_timings": phrase_timings,
+        "word_timings": word_timings,
+        "beat_timings": beat_timings,
+    }
 
 
 def apply_audio_speed(raw_wav: Path, target_wav: Path, speed: float = 0.9):
@@ -164,7 +431,7 @@ def process_storyboard(
 
     if max_scenes and max_scenes > 0:
         scenes = scenes[:max_scenes]
-        print(f"[i] 先导片模式 (Pilot): 仅处理前 {len(scenes)} 个场景", flush=True)
+        print(f"[i] 样板/先导模式: 仅处理前 {len(scenes)} 个镜头", flush=True)
 
     out_dir = Path(output_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -203,7 +470,6 @@ def process_storyboard(
                             print(f"   [=] 命中音频缓存 (speed={speed}x)! 音频时长: {duration:.2f}s (音色: {voice})", flush=True)
                             cached = True
                         else:
-                            # 文本相同但语速参数改变：复用原速音频直接变速，免重新合成
                             if not raw_wav_path.exists():
                                 shutil.copy2(wav_path, raw_wav_path)
                             apply_audio_speed(raw_wav_path, wav_path, speed=speed)
@@ -274,32 +540,51 @@ def process_storyboard(
                         )
                         print(f"   [i] 生成降级占位音频: {wav_filename} (预估时长: {duration:.2f}s)", flush=True)
 
-        frames_count = int(math.ceil(duration * fps))
-        frames_count += 6
+        frames_count = int(math.ceil(duration * fps)) + 6
 
-        start_sec = current_time_offset
-        end_sec = current_time_offset + duration
-        subtitles.append({
-            "index": index + 1,
-            "scene_id": scene_id,
-            "start": start_sec,
-            "end": end_sec,
-            "text": narration
-        })
+        # v4: 计算短语级、词级与动作节拍级时间锚点
+        timing_anchors = compute_phrase_and_beat_timings(
+            scene=scene,
+            wav_path=str(wav_path),
+            duration_sec=duration,
+            total_scene_frames=frames_count,
+            fps=fps
+        )
+        phrase_timings = timing_anchors["phrase_timings"]
+        beat_timings = timing_anchors["beat_timings"]
+
+        if beat_timings:
+            beat_str = " | ".join(
+                [f"{b['beat']}[{b['start_frame']}..{b['end_frame']}f]" for b in beat_timings]
+            )
+            print(f"   [⏱] 动作节拍时间锚点: {beat_str}", flush=True)
+
+        # 生成短语级高精度 SRT 字幕
+        for p in phrase_timings:
+            subtitles.append({
+                "index": len(subtitles) + 1,
+                "scene_id": scene_id,
+                "start": current_time_offset + p["start_sec"],
+                "end": current_time_offset + p["end_sec"],
+                "text": p["text"]
+            })
 
         durations_summary.append({
             "scene_id": scene_id,
             "title": scene.get("title", ""),
-            "type": scene.get("type", "title_card"),
+            "type": scene.get("type", "choreographed_v4"),
             "audio_file": wav_filename,
             "duration_sec": round(duration, 2),
             "frame_count": frames_count,
             "start_frame": total_video_frames,
-            "end_frame": total_video_frames + frames_count
+            "end_frame": total_video_frames + frames_count,
+            "phrase_timings": phrase_timings,
+            "word_timings": timing_anchors["word_timings"],
+            "beat_timings": beat_timings,
         })
 
         total_video_frames += frames_count
-        current_time_offset = end_sec
+        current_time_offset += frames_count / float(fps)
 
     durations_path = out_dir / "durations.json"
     durations_path.write_text(
@@ -328,21 +613,21 @@ def process_storyboard(
             f.write(f"{item['text']}\n\n")
 
     print(f"\n[+] 处理完成! 总时长: {round(total_video_frames / fps, 2)}s, 总帧数: {total_video_frames}", flush=True)
-    print(f"[+] 音频与配置文件已保存至: {out_dir}", flush=True)
+    print(f"[+] 音频与短语级时间锚点已保存至: {out_dir}", flush=True)
     return durations_summary
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate voiceovers & subtitles via Index-TTS")
+    parser = argparse.ArgumentParser(description="Generate voiceovers, phrase anchors & subtitles via Index-TTS")
     parser.add_argument("--input", required=True, help="Path to storyboard.json")
     parser.add_argument("--output-dir", required=True, help="Directory to save wav and subtitles")
     parser.add_argument("--tts-url", default="http://192.168.8.106:8712/tts", help="Index-TTS service URL")
     parser.add_argument("--voice", default="yali.wav", help="Index-TTS voice timbre (default: yali.wav)")
     parser.add_argument("--emo-alpha", type=float, default=1.0, help="Emotion alpha factor")
-    parser.add_argument("--speed", type=float, default=0.9, help="Audio playback speed factor (default: 0.9, i.e., 10% slower)")
+    parser.add_argument("--speed", type=float, default=0.9, help="Audio playback speed factor (default: 0.9)")
     parser.add_argument("--fps", type=int, default=30, help="Target video frames per second")
     parser.add_argument("--no-fallback", action="store_true", help="Disallow fallback if TTS server is offline")
-    parser.add_argument("--max-scenes", type=int, default=None, help="Process only the first N scenes (e.g. for pilot preview)")
+    parser.add_argument("--max-scenes", type=int, default=None, help="Process only the first N scenes (e.g. for first-shot approval)")
 
     args = parser.parse_args()
 

@@ -1,48 +1,79 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
-import { COLORS } from "../theme";
+import { COLORS, GlobalArtDirection, SceneArtDirection, resolveArtTheme } from "../theme";
 
 /**
- * 鲜艳活力 3D 演播室背景：
- * 采用高饱和度宝蓝-紫罗兰-青色极光渐变底色 + 暖阳金/珊瑚粉动态流光球 + 柔和空间透视网格
+ * Premium Editorial Tech Explainer 背景系统 (v4)：
+ * - 彻底移除高饱和极光渐变与彩色流光球
+ * - 支持深色电影级实验室 (dark_cinematic / mechanism_3d) 与浅色理性编辑画布 (light_editorial)
+ * - 单主强调色柔和演播室布光 + 建筑级精密参考网格
  */
-export const Background: React.FC<{ hue?: string }> = ({ hue = COLORS.accent }) => {
+export const Background: React.FC<{
+  hue?: string;
+  artDirection?: SceneArtDirection;
+  globalArtDirection?: GlobalArtDirection;
+  environment?: string;
+}> = ({ hue, artDirection, globalArtDirection, environment }) => {
   const f = useCurrentFrame();
-  const x1 = 22 + Math.sin(f / 85) * 10;
-  const y1 = 26 + Math.cos(f / 95) * 8;
-  const x2 = 78 + Math.cos(f / 90) * 10;
-  const y2 = 68 + Math.sin(f / 75) * 9;
-  const x3 = 52 + Math.sin(f / 110) * 12;
-  const y3 = 18 + Math.cos(f / 100) * 7;
+  const theme = resolveArtTheme(
+    hue ? { ...artDirection, accent_color: artDirection?.accent_color || hue } : artDirection,
+    globalArtDirection
+  );
+
+  const lighting = artDirection?.lighting || globalArtDirection?.lighting_preset || "soft_studio";
+  const accent = theme.accent || COLORS.accent;
+  const subtleDrift = Math.sin(f / 140) * 2.5;
+
+  if (theme.isLight) {
+    return (
+      <AbsoluteFill
+        style={{
+          background: `linear-gradient(180deg, ${theme.bg} 0%, ${theme.bgSecondary} 100%)`,
+          overflow: "hidden",
+        }}
+      >
+        {/* 柔和天光漫反射 */}
+        <AbsoluteFill
+          style={{
+            background: `radial-gradient(ellipse 80% 60% at ${50 + subtleDrift}% 24%, ${accent}14 0%, transparent 72%)`,
+          }}
+        />
+        {/* 建筑制图级微细网格 */}
+        <AbsoluteFill
+          style={{
+            backgroundImage: `linear-gradient(${theme.gridLine} 1px, transparent 1px), linear-gradient(90deg, ${theme.gridLine} 1px, transparent 1px)`,
+            backgroundSize: "72px 72px",
+            maskImage: "radial-gradient(ellipse at center, black 42%, transparent 88%)",
+            WebkitMaskImage: "radial-gradient(ellipse at center, black 42%, transparent 88%)",
+          }}
+        />
+      </AbsoluteFill>
+    );
+  }
+
+  const keyLightOpacity = lighting === "dramatic_rim" ? "1C" : "12";
 
   return (
     <AbsoluteFill
       style={{
-        background:
-          "linear-gradient(135deg, #1e1b4b 0%, #3b0764 38%, #0f4c81 74%, #065f46 100%)",
+        background: `linear-gradient(180deg, ${theme.bg} 0%, ${theme.bgSecondary} 58%, #080A0E 100%)`,
         overflow: "hidden",
       }}
     >
-      {/* 鲜艳多色极光流光球 */}
+      {/* 单一主强调色工作室顶光 (克制不花哨) */}
       <AbsoluteFill
         style={{
-          background: `
-            radial-gradient(circle at ${x1}% ${y1}%, rgba(56, 189, 248, 0.42) 0%, transparent 46%),
-            radial-gradient(circle at ${x2}% ${y2}%, rgba(244, 114, 182, 0.38) 0%, transparent 48%),
-            radial-gradient(circle at ${x3}% ${y3}%, rgba(251, 191, 36, 0.30) 0%, transparent 42%)
-          `,
+          background: `radial-gradient(ellipse 72% 52% at ${50 + subtleDrift}% 28%, ${accent}${keyLightOpacity} 0%, transparent 70%)`,
         }}
       />
 
-      {/* 明亮清爽的空间网格层 */}
+      {/* 物理实验室地平线微光与透视基准网格 */}
       <AbsoluteFill
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          backgroundPosition: `0px ${(f * 0.4) % 64}px`,
-          maskImage: "radial-gradient(ellipse at center, black 35%, transparent 85%)",
-          WebkitMaskImage: "radial-gradient(ellipse at center, black 35%, transparent 85%)",
+          backgroundImage: `linear-gradient(${theme.gridLine} 1px, transparent 1px), linear-gradient(90deg, ${theme.gridLine} 1px, transparent 1px)`,
+          backgroundSize: environment === "minimal_physical_laboratory" ? "64px 64px" : "80px 80px",
+          maskImage: "radial-gradient(ellipse 78% 65% at 50% 48%, black 25%, transparent 82%)",
+          WebkitMaskImage: "radial-gradient(ellipse 78% 65% at 50% 48%, black 25%, transparent 82%)",
         }}
       />
     </AbsoluteFill>

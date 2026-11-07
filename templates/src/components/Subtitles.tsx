@@ -1,6 +1,12 @@
 import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
-import { COLORS, FONT } from "../theme";
+import {
+  COLORS,
+  FONT,
+  GlobalArtDirection,
+  SceneArtDirection,
+  resolveArtTheme,
+} from "../theme";
 
 /** 计算视觉宽度：中文字符记 1，ASCII 记 0.52，避免把英文单词/技能名从中间截断 */
 const visualWidth = (s: string): number => {
@@ -11,7 +17,7 @@ const visualWidth = (s: string): number => {
   return w;
 };
 
-/** 计算口播语速权重：每个汉字记 1，每个英文词段（连字符拆开）记 1.6 */
+/** 计算口播语速权重：每个汉字记 1，每个英文词段记 1.6 */
 const spokenWeight = (s: string): number => {
   const englishTokens = s.match(/[A-Za-z0-9]+/g) || [];
   const cjkChars = s.replace(/[A-Za-z0-9\s\p{P}]/gu, "");
@@ -62,41 +68,64 @@ export const splitNarration = (text: string, maxVisual = 28): string[] => {
 
 export interface WordTiming {
   word: string;
-  startFrame?: number;
-  endFrame?: number;
+  start_frame?: number;
+  end_frame?: number;
+}
+
+export interface PhraseTiming {
+  index: number;
+  text: string;
+  start_frame: number;
+  end_frame: number;
+  start_sec?: number;
+  end_sec?: number;
 }
 
 /**
- * 稳定无频闪字幕组件：
- * - 移除逐字跳动的发光胶囊、字重切换与缩放动画（彻底消除字幕闪烁与排版抖动）
- * - 移除所有 CSS transition（保证 Remotion 多进程并发渲染帧间 100% 确定性）
- * - 采用稳重大气的整句清晰呈现
+ * v4 编辑级精准字幕组件：
+ * - 优先使用 tts_generator.py 生成的 WAV 能量停顿锚点 (phrase_timings)
+ * - 适配 dark_cinematic 与 light_editorial 双主题
+ * - 零 CSS transition，保证并发渲染帧间 100% 确定性
  */
 export const Subtitles: React.FC<{
   text: string;
   audioFrames: number;
   words?: WordTiming[];
-}> = ({ text, audioFrames }) => {
+  phraseTimings?: PhraseTiming[];
+  artDirection?: SceneArtDirection;
+  globalArtDirection?: GlobalArtDirection;
+}> = ({ text, audioFrames, phraseTimings, artDirection, globalArtDirection }) => {
   const f = useCurrentFrame();
   if (!text) return null;
   if (f > audioFrames + 12) return null;
 
-  const parts = splitNarration(text);
-  const weights = parts.map(spokenWeight);
-  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+  const theme = resolveArtTheme(artDirection, globalArtDirection);
 
-  let activeClause = parts[parts.length - 1];
-  let acc = 0;
-  for (let i = 0; i < parts.length; i++) {
-    const end = acc + (weights[i] / totalWeight) * audioFrames;
-    if (f < end) {
-      activeClause = parts[i];
-      break;
+  let activeClause = "";
+  if (phraseTimings && phraseTimings.length > 0) {
+    activeClause = phraseTimings[phraseTimings.length - 1].text;
+    for (const pt of phraseTimings) {
+      if (f >= pt.start_frame && f < pt.end_frame) {
+        activeClause = pt.text;
+        break;
+      }
     }
-    acc = end;
+  } else {
+    const parts = splitNarration(text);
+    const weights = parts.map(spokenWeight);
+    const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+    activeClause = parts[parts.length - 1];
+    let acc = 0;
+    for (let i = 0; i < parts.length; i++) {
+      const end = acc + (weights[i] / totalWeight) * audioFrames;
+      if (f < end) {
+        activeClause = parts[i];
+        break;
+      }
+      acc = end;
+    }
   }
 
-  // 仅在整幕刚进场和即将结束时做柔和透明度过渡，句间切换平稳不闪烁
   const sceneOpacity = interpolate(
     f,
     [0, 5, Math.max(6, audioFrames - 4), audioFrames + 10],
@@ -108,34 +137,38 @@ export const Subtitles: React.FC<{
     <div
       style={{
         position: "absolute",
-        bottom: 64,
+        bottom: 62,
         left: 0,
         right: 0,
         display: "flex",
         justifyContent: "center",
         zIndex: 60,
-        padding: "0 60px",
+        padding: "0 72px",
         opacity: sceneOpacity,
       }}
     >
       <div
         style={{
-          background: "rgba(15, 23, 42, 0.88)",
+          background: theme.isLight
+            ? "rgba(255, 255, 255, 0.94)"
+            : "rgba(13, 17, 25, 0.88)",
           backdropFilter: "blur(14px)",
           WebkitBackdropFilter: "blur(14px)",
-          border: `1.5px solid ${COLORS.accent}66`,
-          borderRadius: 18,
-          padding: "12px 34px",
-          color: "#ffffff",
-          fontSize: 38,
-          fontWeight: 800,
+          border: `1px solid ${theme.isLight ? "rgba(17,19,24,0.16)" : "rgba(255,255,255,0.14)"}`,
+          borderLeft: `4px solid ${theme.accent || COLORS.accent}`,
+          borderRadius: 12,
+          padding: "11px 32px",
+          color: theme.textPrimary,
+          fontSize: 34,
+          fontWeight: 700,
           fontFamily: FONT,
-          letterSpacing: 1.2,
-          textShadow: "0 2px 10px rgba(0,0,0,0.65)",
-          maxWidth: 1680,
+          letterSpacing: 0.8,
+          maxWidth: 1620,
           textAlign: "center",
-          boxShadow: "0 12px 32px rgba(15, 23, 42, 0.45)",
-          lineHeight: 1.35,
+          boxShadow: theme.isLight
+            ? "0 12px 32px rgba(17, 19, 24, 0.08)"
+            : "0 14px 36px rgba(0, 0, 0, 0.55)",
+          lineHeight: 1.38,
         }}
       >
         {activeClause}

@@ -4,9 +4,17 @@ import { TitleCard } from "../components/TitleCard";
 import { BeforeAfterScene } from "../components/BeforeAfterScene";
 import { CodeWalkthroughScene } from "../components/CodeWalkthroughScene";
 import { TerminalScene } from "../components/TerminalScene";
-import { Subtitles } from "../components/Subtitles";
+import { Subtitles, PhraseTiming, WordTiming } from "../components/Subtitles";
 import { Background } from "../components/Background";
 import { ChapterBar, ChapterSpan } from "../components/ChapterBar";
+import {
+  ChoreographedScene,
+  ChoreographyBeat,
+  BeatTiming,
+  TextOverlayItem,
+  VisualWorldSpec,
+} from "../components/ChoreographedScene";
+import { GlobalArtDirection, SceneArtDirection } from "../theme";
 import {
   HookScene,
   PointsScene,
@@ -33,9 +41,18 @@ import {
 export interface SceneData {
   id: string;
   chapter?: string;
-  title: string;
-  type: string;
+  title?: string;
+  type?: string;
+  continuity_group?: string;
   narration: string;
+  visual_intent?: string;
+  art_direction?: SceneArtDirection;
+  visual_world?: VisualWorldSpec;
+  visual_choreography?: ChoreographyBeat[];
+  text_overlays?: TextOverlayItem[];
+  phrase_timings?: PhraseTiming[];
+  word_timings?: WordTiming[];
+  beat_timings?: BeatTiming[];
   durationInFrames: number;
   audioFrames?: number;
   audioUrl?: string;
@@ -43,20 +60,28 @@ export interface SceneData {
 }
 
 export interface TutorialVideoProps {
+  schemaVersion?: string;
   title: string;
   repoName: string;
+  repoUrl?: string;
   repoType: string;
   chapters?: string[];
+  globalArtDirection?: GlobalArtDirection;
   scenes: SceneData[];
 }
 
-const SceneContainer: React.FC<{ duration: number; children: React.ReactNode }> = ({
-  duration,
-  children,
-}) => {
+const SceneContainer: React.FC<{
+  duration: number;
+  sameContinuityAsPrev?: boolean;
+  sameContinuityAsNext?: boolean;
+  children: React.ReactNode;
+}> = ({ duration, sameContinuityAsPrev, sameContinuityAsNext, children }) => {
   const f = useCurrentFrame();
-  const fadeIn = interpolate(f, [0, 8], [0, 1], { extrapolateRight: "clamp" });
-  const fadeOut = interpolate(f, [Math.max(1, duration - 8), duration], [1, 0], {
+  // 若相邻镜头属于同一个连续三维空间组 (continuity_group)，减少淡入淡出黑场跳变，保持叙事连贯
+  const fadeInFrames = sameContinuityAsPrev ? 3 : 8;
+  const fadeOutFrames = sameContinuityAsNext ? 3 : 8;
+  const fadeIn = interpolate(f, [0, fadeInFrames], [0, 1], { extrapolateRight: "clamp" });
+  const fadeOut = interpolate(f, [Math.max(1, duration - fadeOutFrames), duration], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -64,7 +89,8 @@ const SceneContainer: React.FC<{ duration: number; children: React.ReactNode }> 
 };
 
 export const TutorialVideo: React.FC<TutorialVideoProps> = ({
-  repoName = "superpowers",
+  repoName = "repo-to-video",
+  globalArtDirection,
   scenes = [],
 }) => {
   let acc = 0;
@@ -72,11 +98,11 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = ({
   const chapterMap = new Map<string, ChapterSpan>();
 
   for (const scene of scenes) {
-    const duration = scene.durationInFrames || 90;
+    const duration = scene.durationInFrames || 120;
     const from = acc;
     const end = acc + duration;
     spans.push({ scene, from, duration });
-    const ch = scene.chapter || "讲解";
+    const ch = scene.chapter || scene.title || "核心演示";
     const existing = chapterMap.get(ch);
     if (!existing) {
       chapterMap.set(ch, { name: ch, start: from, end });
@@ -90,90 +116,128 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = ({
   const totalFrames = Math.max(1, acc);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#1e1b4b" }}>
-      <Background />
+    <AbsoluteFill style={{ backgroundColor: "#0B0D12" }}>
       <ChapterBar chapters={chapterSpans} total={totalFrames} repoName={repoName} />
 
       {spans.map(({ scene, from, duration }, index) => {
         const d = scene.data || {};
         const audioFrames = scene.audioFrames || Math.max(30, duration - 6);
+        const isV4Choreographed =
+          Boolean(scene.visual_choreography && scene.visual_choreography.length > 0) ||
+          scene.type === "choreographed_v4";
+
+        const prevGroup = index > 0 ? spans[index - 1].scene.continuity_group : undefined;
+        const nextGroup =
+          index < spans.length - 1 ? spans[index + 1].scene.continuity_group : undefined;
+        const sameAsPrev = Boolean(scene.continuity_group && scene.continuity_group === prevGroup);
+        const sameAsNext = Boolean(scene.continuity_group && scene.continuity_group === nextGroup);
 
         return (
           <Sequence key={scene.id || index} from={from} durationInFrames={duration}>
-            <SceneContainer duration={duration}>
-              {scene.type === "hook" && <HookScene title={scene.title} data={d} />}
-              {scene.type === "points" && <PointsScene title={scene.title} data={d} />}
-              {scene.type === "skill_grid" && <SkillGridScene title={scene.title} data={d} />}
-              {scene.type === "skill_card" && <SkillCardScene title={scene.title} data={d} />}
-              {scene.type === "workflow" && <WorkflowScene title={scene.title} data={d} />}
-              {scene.type === "tier_list" && <TierListScene title={scene.title} data={d} />}
-              {scene.type === "outro" && <OutroScene title={scene.title} data={d} />}
-              {(scene.type === "spotlight" || scene.type === "hero_metric") && (
-                <SpotlightScene title={scene.title} data={d} />
-              )}
-              {(scene.type === "architecture" || scene.type === "pipeline") && (
-                <ArchitectureScene title={scene.title} data={d} />
-              )}
-              {scene.type === "matrix_compare" && (
-                <MatrixCompareScene title={scene.title} data={d} />
-              )}
+            {/* 每个镜头根据自身 art_direction 和 globalArtDirection 渲染克制统一的演播室背景 */}
+            <Background
+              artDirection={scene.art_direction}
+              globalArtDirection={globalArtDirection}
+              environment={scene.visual_world?.environment}
+            />
 
-              {/* Shotcraft 3D & 特级教师互动仿真镜头库 */}
-              {scene.type === "analogy_3d" && (
-                <AnalogyTheater3DScene title={scene.title} data={d} />
-              )}
-              {(scene.type === "funnel_3d" || scene.type === "funnel_sim") && (
-                <FunnelDistill3DScene title={scene.title} data={d} />
-              )}
-              {scene.type === "timeline_3d" && (
-                <TimelineEvolution3DScene title={scene.title} data={d} />
-              )}
-              {scene.type === "exploded_3d" && (
-                <ExplodedArchitecture3DScene title={scene.title} data={d} />
-              )}
-              {scene.type === "radar_sim" && (
-                <FourSignalRadarSimScene title={scene.title} data={d} />
-              )}
-              {scene.type === "slider_scrub" && (
-                <SliderScrubCompareScene title={scene.title} data={d} />
-              )}
-              {scene.type === "terminal_3d" && (
-                <Terminal3DFlightScene title={scene.title} data={d} />
-              )}
-              {scene.type === "carousel_3d" && (
-                <Carousel3DShowcaseScene title={scene.title} data={d} />
-              )}
-
-              {scene.type === "title_card" && (
-                <TitleCard
-                  title={scene.title}
-                  headline={d.headline}
-                  subheadline={d.subheadline}
-                  tag={d.tag}
+            <SceneContainer
+              duration={duration}
+              sameContinuityAsPrev={sameAsPrev}
+              sameContinuityAsNext={sameAsNext}
+            >
+              {isV4Choreographed ? (
+                <ChoreographedScene
+                  scene={{
+                    ...scene,
+                    durationInFrames: duration,
+                  }}
+                  globalArtDirection={globalArtDirection}
                 />
-              )}
+              ) : (
+                <>
+                  {scene.type === "hook" && <HookScene title={scene.title || ""} data={d} />}
+                  {scene.type === "points" && <PointsScene title={scene.title || ""} data={d} />}
+                  {scene.type === "skill_grid" && (
+                    <SkillGridScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "skill_card" && (
+                    <SkillCardScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "workflow" && (
+                    <WorkflowScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "tier_list" && (
+                    <TierListScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "outro" && <OutroScene title={scene.title || ""} data={d} />}
+                  {(scene.type === "spotlight" || scene.type === "hero_metric") && (
+                    <SpotlightScene title={scene.title || ""} data={d} />
+                  )}
+                  {(scene.type === "architecture" || scene.type === "pipeline") && (
+                    <ArchitectureScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "matrix_compare" && (
+                    <MatrixCompareScene title={scene.title || ""} data={d} />
+                  )}
 
-              {scene.type === "compare" && (
-                <BeforeAfterScene
-                  title={scene.title}
-                  before_title={d.before_title}
-                  before_text={d.before_text}
-                  after_title={d.after_title}
-                  after_text={d.after_text}
-                />
-              )}
+                  {scene.type === "analogy_3d" && (
+                    <AnalogyTheater3DScene title={scene.title || ""} data={d} />
+                  )}
+                  {(scene.type === "funnel_3d" || scene.type === "funnel_sim") && (
+                    <FunnelDistill3DScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "timeline_3d" && (
+                    <TimelineEvolution3DScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "exploded_3d" && (
+                    <ExplodedArchitecture3DScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "radar_sim" && (
+                    <FourSignalRadarSimScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "slider_scrub" && (
+                    <SliderScrubCompareScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "terminal_3d" && (
+                    <Terminal3DFlightScene title={scene.title || ""} data={d} />
+                  )}
+                  {scene.type === "carousel_3d" && (
+                    <Carousel3DShowcaseScene title={scene.title || ""} data={d} />
+                  )}
 
-              {scene.type === "code_focus" && (
-                <CodeWalkthroughScene
-                  title={scene.title}
-                  code={d.code || ""}
-                  language={d.language || "yaml"}
-                  filename={d.filename || "SKILL.md"}
-                />
-              )}
+                  {scene.type === "title_card" && (
+                    <TitleCard
+                      title={scene.title || ""}
+                      headline={d.headline}
+                      subheadline={d.subheadline}
+                      tag={d.tag}
+                    />
+                  )}
 
-              {scene.type === "terminal" && (
-                <TerminalScene title={scene.title} commands={d.commands || []} />
+                  {scene.type === "compare" && (
+                    <BeforeAfterScene
+                      title={scene.title || ""}
+                      before_title={d.before_title}
+                      before_text={d.before_text}
+                      after_title={d.after_title}
+                      after_text={d.after_text}
+                    />
+                  )}
+
+                  {scene.type === "code_focus" && (
+                    <CodeWalkthroughScene
+                      title={scene.title || ""}
+                      code={d.code || ""}
+                      language={d.language || "yaml"}
+                      filename={d.filename || "SKILL.md"}
+                    />
+                  )}
+
+                  {scene.type === "terminal" && (
+                    <TerminalScene title={scene.title || ""} commands={d.commands || []} />
+                  )}
+                </>
               )}
             </SceneContainer>
 
@@ -187,7 +251,14 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = ({
               />
             )}
 
-            <Subtitles text={scene.narration} audioFrames={audioFrames} />
+            <Subtitles
+              text={scene.narration}
+              audioFrames={audioFrames}
+              phraseTimings={scene.phrase_timings}
+              words={scene.word_timings}
+              artDirection={scene.art_direction}
+              globalArtDirection={globalArtDirection}
+            />
           </Sequence>
         );
       })}

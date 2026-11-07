@@ -1,5 +1,5 @@
 {
-  "registry_version": "4.1.0",
+  "registry_version": "4.2.0",
   "element_budget_policy": {
     "max_total_major_elements": 4,
     "max_primary_objects": 1,
@@ -9,7 +9,8 @@
       "information_particles",
       "signal_particles",
       "network_nodes",
-      "data_packets"
+      "data_packets",
+      "request_packets"
     ]
   },
   "supported_environments": {
@@ -75,10 +76,92 @@
     "top_down_overview",
     "steady_hold"
   ],
+  "object_renderers": {
+    "3d_filter_machine": { "slot": "center", "coords": [0, -15, 20], "category": "PhysicalMechanism" },
+    "information_particles": { "slot": "left", "coords": [-420, -10, 0], "category": "ParticleEmitter" },
+    "signal_particles": { "slot": "left", "coords": [-420, -10, 0], "category": "ParticleEmitter" },
+    "waste_container": { "slot": "bottom", "coords": [-20, 210, -20], "category": "Container" },
+    "purified_object": { "slot": "right", "coords": [450, -15, 45], "category": "CrystalEntity" },
+    "morphing_crystal": { "slot": "right", "coords": [450, -15, 45], "category": "CrystalEntity" },
+    "layered_architecture": { "slot": "left_wide", "coords": [-180, 0, 15], "category": "StructuralStack" },
+    "mechanical_core": { "slot": "center", "coords": [0, 0, 25], "category": "StructuralStack" },
+    "rotor_ring_assembly": { "slot": "center", "coords": [0, 0, 25], "category": "PhysicalMechanism" },
+    "sqlite_ledger_slab": { "slot": "layer_0", "coords": [-180, 130, 0], "category": "ArchitectureSlab" },
+    "vector_index_slab": { "slot": "layer_1", "coords": [-180, 0, 15], "category": "ArchitectureSlab" },
+    "graph_topology_slab": { "slot": "layer_2", "coords": [-180, -130, 30], "category": "ArchitectureSlab" },
+    "converged_answer_crystal": { "slot": "right", "coords": [440, 0, 40], "category": "CrystalEntity" },
+    "multi_probe_router": { "slot": "right", "coords": [340, 0, 30], "category": "TopologyNetwork" },
+    "spatial_topology_graph": { "slot": "right", "coords": [340, 0, 30], "category": "TopologyNetwork" },
+    "optical_data_bus": { "slot": "center", "coords": [0, 0, 10], "category": "DataConduit" },
+    "vector_probe": { "slot": "left_0", "coords": [-360, -120, 0], "category": "SignalProbe" },
+    "lexical_probe": { "slot": "left_1", "coords": [-360, 0, 0], "category": "SignalProbe" },
+    "graph_probe": { "slot": "left_2", "coords": [-360, 120, 0], "category": "SignalProbe" },
+    "temporal_probe": { "slot": "left_3", "coords": [-360, 180, 0], "category": "SignalProbe" },
+    "network_nodes": { "slot": "right", "coords": [340, 0, 20], "category": "TopologyNetwork" },
+    "state_timeline_track": { "slot": "center", "coords": [0, 0, 0], "category": "TimelineRail" },
+    "historical_state_v1": { "slot": "left", "coords": [-440, 0, -15], "category": "StateBlock" },
+    "incremental_state_v2": { "slot": "center", "coords": [0, 0, 0], "category": "StateBlock" },
+    "timestamped_latest_state": { "slot": "right", "coords": [440, 0, 30], "category": "StateBlock" },
+    "physical_balance_stage": { "slot": "center", "coords": [0, 0, 0], "category": "ContrastStage" },
+    "indexed_fact_node": { "slot": "right", "coords": [360, 0, 25], "category": "StateBlock" },
+    "authentic_code_viewport": { "slot": "left_wide", "coords": [-220, 0, 15], "category": "CodeViewport" },
+    "authentic_terminal_bench": { "slot": "right", "coords": [380, -40, 15], "category": "TerminalBench" },
+    "authentic_ui_showcase": { "slot": "center", "coords": [0, 0, 20], "category": "UIViewport" },
+    "benchmark_telemetry_panel": { "slot": "bottom_right", "coords": [380, 180, 20], "category": "TelemetryPanel" },
+    "agent_dispatcher_core": { "slot": "center", "coords": [0, 0, 25], "category": "AgentHub" },
+    "skill_tool_slot": { "slot": "right", "coords": [400, 0, 20], "category": "ToolModule" },
+    "api_client_origin": { "slot": "left", "coords": [-440, 0, 10], "category": "NetworkEndpoint" },
+    "api_gateway_endpoint": { "slot": "center", "coords": [0, 0, 25], "category": "NetworkEndpoint" },
+    "request_packets": { "slot": "center", "coords": [-120, -30, 20], "category": "ParticleEmitter" },
+    "response_payload_crystal": { "slot": "right", "coords": [440, 0, 35], "category": "CrystalEntity" },
+    "editorial_thesis_monolith": { "slot": "center", "coords": [0, 0, 20], "category": "TypographyMonolith" }
+  },
+  "motion_primitives": [
+    "particles_flow",
+    "separate",
+    "collide",
+    "split",
+    "merge",
+    "transform",
+    "crystallize",
+    "explode_layers",
+    "disassemble",
+    "rotate_rotor",
+    "interlock",
+    "scan_layer",
+    "assemble",
+    "emit_probes",
+    "weigh_signals",
+    "route_stream",
+    "connect_bus",
+    "converge_result",
+    "append_state",
+    "anchor_timestamp",
+    "trace_lineage",
+    "overload_collapse",
+    "precision_extract",
+    "reveal_ui",
+    "highlight_code",
+    "type_command",
+    "execute_output",
+    "navigate",
+    "interact",
+    "compare_split",
+    "dispatch_tool",
+    "send_request",
+    "stream_response",
+    "kinetic_reveal",
+    "editorial_focus",
+    "metric_counter",
+    "chapter_transition"
+  ],
   "renderers": [
     {
-      "id": "PhysicalSimulation",
-      "name": "3D 粒子与物理形态仿真组件",
+      "id": "particle_filter_v1",
+      "aliases": ["PhysicalSimulation"],
+      "version": "4.2.0",
+      "component": "PhysicalSimulationRenderer",
+      "name": "3D 粒子过滤与多面体结晶仿真渲染器",
       "category": "PhysicalSimulation",
       "renderTech": ["ThreeJS", "SVG", "Remotion+CSS"],
       "supportedActions": [
@@ -96,8 +179,7 @@
         "signal_particles",
         "waste_container",
         "purified_object",
-        "morphing_crystal",
-        "particle_attractor"
+        "morphing_crystal"
       ],
       "supportedCameras": [
         "slow_dolly_in",
@@ -120,20 +202,14 @@
         "crystal_facets",
         "gravity",
         "token_labels"
-      ],
-      "recommendedUseCases": [
-        "数据过滤、去噪与信息提纯",
-        "Token 切块、向量化或特征聚类",
-        "多源碎片信息融合生成新结构"
-      ],
-      "antiPatterns": [
-        "不要用于展示静态目录列表",
-        "不要把整段长句子塞进单个粒子标签"
       ]
     },
     {
-      "id": "MechanicalStructure",
-      "name": "3D 机械结构拆解与装配组件",
+      "id": "architecture_v1",
+      "aliases": ["MechanicalStructure"],
+      "version": "4.2.0",
+      "component": "MechanicalStructureRenderer",
+      "name": "3D 机械与多层系统架构拆解渲染器",
       "category": "MechanicalStructure",
       "renderTech": ["ThreeJS", "SVG", "Remotion+CSS"],
       "supportedActions": [
@@ -142,6 +218,7 @@
         "rotate_rotor",
         "interlock",
         "scan_layer",
+        "connect_bus",
         "assemble"
       ],
       "supportedObjects": [
@@ -151,6 +228,7 @@
         "sqlite_ledger_slab",
         "vector_index_slab",
         "graph_topology_slab",
+        "optical_data_bus",
         "converged_answer_crystal"
       ],
       "supportedCameras": [
@@ -159,7 +237,8 @@
         "orbit_right",
         "track_vertical",
         "close_up",
-        "dolly_out"
+        "dolly_out",
+        "slow_dolly_in"
       ],
       "supportedEnvironments": [
         "dark_architectural_stage",
@@ -172,28 +251,26 @@
         "rotor_rpm",
         "scan_progress",
         "layer_specs"
-      ],
-      "recommendedUseCases": [
-        "多层存储引擎或编译器架构拆解",
-        "内部核心模块咬合与解耦关系",
-        "硬件/系统栈自底向上装配过程"
-      ],
-      "antiPatterns": [
-        "不要用于简单的业务步骤顺序介绍",
-        "层数不要超过 4 层以免空间拥挤"
       ]
     },
     {
-      "id": "DataFlow",
-      "name": "多路数据流、空间网络与信号路由组件",
+      "id": "dataflow_router_v1",
+      "aliases": ["DataFlow"],
+      "version": "4.2.0",
+      "component": "DataFlowRenderer",
+      "name": "多路数据流、API 通信与三维空间拓扑渲染器",
       "category": "DataFlow",
       "renderTech": ["SVG", "ThreeJS", "Remotion+CSS"],
       "supportedActions": [
         "emit_probes",
         "weigh_signals",
         "route_stream",
+        "route_parallel",
         "connect_bus",
-        "converge_result"
+        "converge_result",
+        "dispatch_tool",
+        "send_request",
+        "stream_response"
       ],
       "supportedObjects": [
         "multi_probe_router",
@@ -203,40 +280,47 @@
         "lexical_probe",
         "graph_probe",
         "temporal_probe",
-        "network_nodes"
+        "network_nodes",
+        "agent_dispatcher_core",
+        "skill_tool_slot",
+        "api_client_origin",
+        "api_gateway_endpoint",
+        "request_packets",
+        "response_payload_crystal",
+        "converged_answer_crystal"
       ],
       "supportedCameras": [
         "slow_dolly_in",
         "track_horizontal",
+        "orbit_left",
         "orbit_right",
         "top_down_overview",
-        "close_up"
+        "close_up",
+        "steady_hold"
       ],
       "supportedEnvironments": [
         "spatial_network_void",
         "minimal_physical_laboratory",
-        "dark_architectural_stage"
+        "dark_architectural_stage",
+        "editorial_drafting_table"
       ],
       "payloadSchema": [
+        "probe_count",
         "weights",
         "active_channels",
         "confidence_target",
         "node_connections",
-        "pulse_speed"
-      ],
-      "recommendedUseCases": [
-        "多路混合检索（Vector + BM25 + Graph + Temporal）加权融合",
-        "MoE 专家路由与负载均衡分发",
-        "知识图谱三维节点拓扑连线"
-      ],
-      "antiPatterns": [
-        "不要退化为静止的雷达打分表",
-        "不要同时高亮超过 4 条主干流线"
+        "pulse_speed",
+        "endpoint_label",
+        "status_code"
       ]
     },
     {
-      "id": "SystemArchitecture",
-      "name": "系统时序状态与空间负载对比组件",
+      "id": "timeline_state_v1",
+      "aliases": ["SystemArchitecture"],
+      "version": "4.2.0",
+      "component": "SystemArchitectureRenderer",
+      "name": "时序状态演进与空间负载对比渲染器",
       "category": "SystemArchitecture",
       "renderTech": ["SVG", "Remotion+CSS", "ThreeJS"],
       "supportedActions": [
@@ -244,7 +328,8 @@
         "anchor_timestamp",
         "trace_lineage",
         "overload_collapse",
-        "precision_extract"
+        "precision_extract",
+        "dispatch_tool"
       ],
       "supportedObjects": [
         "state_timeline_track",
@@ -252,7 +337,9 @@
         "historical_state_v1",
         "incremental_state_v2",
         "timestamped_latest_state",
-        "indexed_fact_node"
+        "indexed_fact_node",
+        "agent_dispatcher_core",
+        "skill_tool_slot"
       ],
       "supportedCameras": [
         "track_horizontal",
@@ -272,18 +359,14 @@
         "timestamps",
         "active_node_index",
         "strain_level"
-      ],
-      "recommendedUseCases": [
-        "Append-only 状态演进、Git 提交树与时间锚点推理",
-        "全量上下文超载崩塌 vs 精准索引 O(1) 抽卡对比"
-      ],
-      "antiPatterns": [
-        "不要放满屏的左/右文字对比 bullet points"
       ]
     },
     {
-      "id": "ProductInterface",
-      "name": "真实代码、终端实操与产品界面演示组件",
+      "id": "product_interface_v1",
+      "aliases": ["ProductInterface"],
+      "version": "4.2.0",
+      "component": "ProductInterfaceRenderer",
+      "name": "真实代码、终端实操与产品界面演示渲染器",
       "category": "ProductInterface",
       "renderTech": ["ScreenRecording", "Remotion+CSS", "SVG"],
       "supportedActions": [
@@ -306,6 +389,7 @@
         "slow_dolly_in",
         "close_up",
         "macro_focus",
+        "track_horizontal",
         "track_vertical"
       ],
       "supportedEnvironments": [
@@ -319,20 +403,14 @@
         "zoom_region",
         "split_ratio",
         "cursor_pos"
-      ],
-      "recommendedUseCases": [
-        "展示仓库真实源码核心逻辑（自动行级聚焦与非核心行暗化让位）",
-        "真实 CLI 安装与调用命令执行过程",
-        "真实 Web UI 截图/录屏交互演示"
-      ],
-      "antiPatterns": [
-        "严禁编造仓库中不存在的假 API 或假代码",
-        "单屏代码展示严禁超过 14 行"
       ]
     },
     {
-      "id": "KineticTypography",
-      "name": "高级编辑动态排版与核心命题揭示组件",
+      "id": "kinetic_thesis_v1",
+      "aliases": ["KineticTypography"],
+      "version": "4.2.0",
+      "component": "KineticTypographyRenderer",
+      "name": "高级编辑动态排版与核心命题揭示渲染器",
       "category": "KineticTypography",
       "renderTech": ["Remotion+CSS", "SVG"],
       "supportedActions": [
@@ -362,13 +440,6 @@
         "metric_value",
         "metric_unit",
         "axiom_number"
-      ],
-      "recommendedUseCases": [
-        "开场核心技术命题揭示",
-        "章节逻辑转折点与核心性能指标定格"
-      ],
-      "antiPatterns": [
-        "全片使用不得超过 1~2 次，绝不允许代替核心机制动画"
       ]
     }
   ]

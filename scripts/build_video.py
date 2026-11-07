@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-build_video.py (v4.1) - 可执行的视觉编排系统构建流水线：
+build_video.py (v4.2) - 可执行的视觉编排系统构建流水线与强交付门禁：
 1. 分析目标仓库并拉取实时 GitHub 数据
-2. 严格执行 v4.1 字段级白名单、Renderer Registry 能力校验、元素预算 (<= 4) 与 phrase_anchor 顺序校验
-3. 验证 Motion Designer 组件绑定（严禁未知动作/物体静默退化到默认模板）
-4. 调用短语级分段 TTS 配音与声学强制对齐 (phrase_timings / word_timings / beat_timings)
-5. 支持代表性样板镜头审核 (hero_scene_id / --hero-shot) 与四层 Visual QA (--run-qa)
+2. 严格执行 v4.2 字段级白名单、唯一数据源 renderer-registry.json 能力校验、元素预算 (<= 4) 与结构化 yielding 校验
+3. 强制要求每个镜头显式声明 renderer_id，且 product_interface_v1 必须提供真实 authentic_assets
+4. 调用短语级分段 TTS 配音与 WordBoundary / 声学强制对齐 (phrase_timings / word_timings / beat_timings)
+5. 支持代表性样板镜头审核 (--first-shot / --hero-shot)、四层 Visual QA (--run-qa) 与强门禁成片渲染 (--render-final)
 """
 
 import os
@@ -19,7 +19,6 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Any, List, Set
 
-# 确保脚本所在目录加入导入路径
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
 
 ALLOWED_TOP_KEYS: Set[str] = {
@@ -49,6 +48,7 @@ ALLOWED_SCENE_KEYS: Set[str] = {
     "visual_choreography",
     "text_overlays",
     "motion_notes",
+    "debugMode",
 }
 
 ALLOWED_ART_KEYS: Set[str] = {
@@ -76,9 +76,22 @@ ALLOWED_BEAT_KEYS: Set[str] = {
     "target",
     "description",
     "camera",
+    "camera_config",
     "shot_scale",
     "yielding",
     "payload",
+    "start_frame",
+    "end_frame",
+    "startFrame",
+    "endFrame",
+}
+
+ALLOWED_YIELDING_RULE_KEYS: Set[str] = {
+    "target",
+    "opacity",
+    "scale",
+    "zOffset",
+    "blur",
 }
 
 FORBIDDEN_LEGACY_KEYS: Set[str] = {
@@ -97,13 +110,33 @@ FORBIDDEN_LEGACY_KEYS: Set[str] = {
 
 
 def load_registry_manifest() -> Dict[str, Any]:
-    """加载 templates/src/registry/registry_manifest.json 共享能力注册表"""
-    manifest_path = (
-        Path(__file__).parent.parent / "templates" / "src" / "registry" / "registry_manifest.json"
-    ).resolve()
-    if not manifest_path.exists():
-        raise FileNotFoundError(f"Renderer Registry manifest not found: {manifest_path}")
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
+    """
+    加载唯一数据源 renderer-registry.json（同时兼容 templates/src/registry/registry_manifest.json）
+    """
+    root_dir = Path(__file__).parent.parent.resolve()
+    primary_path = root_dir / "renderer-registry.json"
+    secondary_path = root_dir / "templates" / "src" / "registry" / "registry_manifest.json"
+
+    if primary_path.exists():
+        return json.loads(primary_path.read_text(encoding="utf-8"))
+    if secondary_path.exists():
+        return json.loads(secondary_path.read_text(encoding="utf-8"))
+    raise FileNotFoundError(
+        f"Renderer Registry manifest not found at {primary_path} or {secondary_path}"
+    )
+
+
+def build_renderers_lookup(manifest: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """构建支持主 ID、别名 (aliases) 与组件名 (component) 的渲染器查找表"""
+    lookup: Dict[str, Dict[str, Any]] = {}
+    for r in manifest.get("renderers", []):
+        lookup[r["id"]] = r
+        for alias in r.get("aliases", []):
+            lookup[alias] = r
+        comp = r.get("component")
+        if comp:
+            lookup[comp] = r
+    return lookup
 
 
 def normalize_obj_id(obj: Any) -> str:
@@ -131,20 +164,20 @@ def number_to_chinese_thousands(stars: int) -> str:
     return str(stars)
 
 
-def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
+def validate_storyboard_v4_2(storyboard_path: Path) -> Dict[str, Any]:
     """
-    v4.1 强执行校验门禁：
-    1. 字段级白名单检查：彻底禁止新旧结构混用（即使存在 visual_choreography，出现 data/cards/type 等旧字段也直接报错）
+    v4.2 强执行校验门禁：
+    1. 字段级白名单检查：彻底禁止新旧结构混用（出现 data/cards/type 等旧字段直接报错）
     2. 统一元素预算口径：1 个 primary_object + 最多 3 个 secondary_objects = 最多 4 个主要视觉元素 (element_budget <= 4)
-       （注：particle_system 内的粒子实例作为 collective_group 计为 1 个整体视觉元素）
-    3. Renderer Registry 能力验证：检查每个镜头的 renderer_id、environment、primary_object、action、camera 和 payload 是否在注册表中真实支持
-    4. 严格 phrase_anchor 校验：每个动作必须匹配口播原文、严禁重复锚定、顺序必须单调递增
-    5. Hero Scene 样板指定校验：检查 hero_scene_id 是否有效
+    3. 强制显式 renderer_id 与 Renderer Registry 能力验证：每个镜头必须显式声明已注册的 renderer_id，禁止启发式猜测
+    4. 结构化 yielding 校验：校验每个让位规则的目标与数值范围
+    5. 真实代码资产门禁：product_interface_v1 镜头必须包含非空 authentic_assets（禁止回退到伪造示例）
+    6. 严格 phrase_anchor 校验：每个动作必须匹配口播原文、严禁重复锚定、顺序必须单调递增
     """
     if not storyboard_path.exists():
         print("\n" + "=" * 78)
         print("[✗] 致命错误: 未找到正式分镜文件 workspace/storyboard.json！")
-        print("    repo-to-video v4.1 严禁自动降级生成简化版默认分镜。")
+        print("    repo-to-video v4.2 严禁自动降级生成简化版默认分镜。")
         print("    请严格按五阶段流程依次执行：")
         print("      1. Scriptwriter (agents/scriptwriter.md) -> workspace/script_draft.json")
         print("      2. Visual Director (agents/visual_director.md) -> workspace/storyboard.json")
@@ -161,7 +194,8 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
     manifest = load_registry_manifest()
     supported_envs = set(manifest.get("supported_environments", {}).keys())
     supported_cameras = set(manifest.get("supported_cameras", []))
-    renderers_map = {r["id"]: r for r in manifest.get("renderers", [])}
+    renderers_map = build_renderers_lookup(manifest)
+    canonical_renderer_ids = [r["id"] for r in manifest.get("renderers", [])]
     budget_policy = manifest.get("element_budget_policy", {})
     max_total_elements = budget_policy.get("max_total_major_elements", 4)
     max_sec_objs = budget_policy.get("max_secondary_objects", 3)
@@ -170,10 +204,9 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
     errors: List[str] = []
     warnings: List[str] = []
 
-    # 顶层白名单检查
     unknown_top = set(data.keys()) - ALLOWED_TOP_KEYS
     if unknown_top:
-        errors.append(f"Storyboard 顶层包含未授权字段: {sorted(unknown_top)}（请使用严格 v4.1 Schema）。")
+        errors.append(f"Storyboard 顶层包含未授权字段: {sorted(unknown_top)}（请使用严格 v4.2 Schema）。")
 
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or len(scenes) == 0:
@@ -195,13 +228,13 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
         sid = scene.get("id") or f"scene_{idx + 1}"
         prefix = f"Scene[{idx + 1}:{sid}]"
 
-        # 1. 字段级白名单检查（杜绝旧版卡片结构混入）
+        # 1. 字段级白名单检查
         scene_keys = set(scene.keys())
         forbidden_found = scene_keys.intersection(FORBIDDEN_LEGACY_KEYS)
         if forbidden_found:
             errors.append(
                 f"{prefix} 检测到被禁止的旧版卡片/模板字段 {sorted(forbidden_found)}！"
-                f"v4.1 采用严格字段级白名单，严禁新旧结构混用。"
+                f"v4.2 采用严格字段级白名单，严禁新旧结构混用。"
             )
         unknown_scene_keys = scene_keys - ALLOWED_SCENE_KEYS - FORBIDDEN_LEGACY_KEYS
         if unknown_scene_keys:
@@ -249,7 +282,7 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
                 errors.append(f"{prefix}.visual_world 缺少 'environment'。")
             elif env not in supported_envs:
                 errors.append(
-                    f"{prefix}.visual_world.environment='{env}' 未在 registry_manifest.json 中注册！支持列表: {sorted(supported_envs)}"
+                    f"{prefix}.visual_world.environment='{env}' 未在 renderer-registry.json 中注册！支持列表: {sorted(supported_envs)}"
                 )
 
             primary_id = normalize_obj_id(world.get("primary_object"))
@@ -265,45 +298,41 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
                     f"加上 1 个主物体后总主要元素不得超过 {max_total_elements} 个（粒子群作为单一集合体计为 1 个元素）。"
                 )
 
-        # 4. Renderer Registry 匹配与 visual_choreography 能力验证
+        # 4. 严格校验显式声明的 renderer_id 与能力匹配
+        explicit_rid = (scene.get("renderer_id") or "").strip()
+        matched_renderer = None
+        if not explicit_rid:
+            errors.append(
+                f"{prefix} 缺少必填字段 'renderer_id'！v4.2 严禁启发式猜测路由，必须显式声明 renderer-registry.json 中的组件 ID: {canonical_renderer_ids}"
+            )
+        elif explicit_rid not in renderers_map:
+            errors.append(
+                f"{prefix} 声明的 renderer_id='{explicit_rid}' 未在 renderer-registry.json 中注册！可用 ID: {canonical_renderer_ids}"
+            )
+        else:
+            matched_renderer = renderers_map[explicit_rid]
+            if primary_id and primary_id not in matched_renderer.get("supportedObjects", []):
+                errors.append(
+                    f"{prefix}.visual_world.primary_object='{primary_id}' 不被渲染器 '{matched_renderer['id']}' 支持！"
+                    f"支持的物体: {matched_renderer.get('supportedObjects', [])}"
+                )
+            # 若为 product_interface_v1，强制检查 authentic_assets
+            if matched_renderer["id"] == "product_interface_v1":
+                auth = (world or {}).get("authentic_assets")
+                if not isinstance(auth, dict) or (
+                    not (auth.get("code_snippet") or "").strip()
+                    and not (auth.get("terminal_commands") or [])
+                ):
+                    errors.append(
+                        f"{prefix} 使用了 '{matched_renderer['id']}'，但缺少真实的 visual_world.authentic_assets (code_snippet 或 terminal_commands)！"
+                        f"v4.2 严禁使用伪造兜底代码冒充 AUTHENTIC SOURCE。"
+                    )
+
+        # 5. visual_choreography 能力验证与结构化 yielding 校验
         choreo = scene.get("visual_choreography")
         if not isinstance(choreo, list) or len(choreo) == 0:
             errors.append(f"{prefix} 缺少 'visual_choreography' 动作节拍序列。")
         else:
-            # 匹配 Renderer
-            explicit_rid = scene.get("renderer_id")
-            matched_renderer = None
-            if explicit_rid:
-                if explicit_rid not in renderers_map:
-                    errors.append(
-                        f"{prefix} 指定的 renderer_id='{explicit_rid}' 未在 Renderer Registry 中注册！可用组件: {sorted(renderers_map.keys())}"
-                    )
-                else:
-                    matched_renderer = renderers_map[explicit_rid]
-            else:
-                # 根据 primary_object 与 actions 查找能力匹配的 Renderer
-                best_r = None
-                best_score = 0
-                for r in renderers_map.values():
-                    score = 0
-                    if primary_id in r["supportedObjects"]:
-                        score += 5
-                    for b in choreo:
-                        if isinstance(b, dict) and b.get("action") in r["supportedActions"]:
-                            score += 3
-                    if score > best_score:
-                        best_score = score
-                        best_r = r
-                matched_renderer = best_r
-                if not matched_renderer:
-                    errors.append(
-                        f"{prefix} 的 primary_object='{primary_id}' 与动作未匹配到任何已注册的 SceneRenderer！"
-                        f"请由 Motion Designer 在 templates/src/registry/ 中开发并注册新组件。"
-                    )
-                else:
-                    scene["renderer_id"] = matched_renderer["id"]
-
-            # 逐个节拍校验字段白名单、action 支持度、camera 支持度、yielding 与 payload
             for b_idx, beat in enumerate(choreo):
                 b_prefix = f"{prefix}.visual_choreography[{b_idx}]"
                 if not isinstance(beat, dict):
@@ -331,10 +360,23 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
                         f"{b_prefix}.camera='{cam}' 不在受支持的相机运镜列表 {sorted(supported_cameras)} 中。"
                     )
 
-                if len(choreo) > 1 and not beat.get("yielding"):
+                yielding = beat.get("yielding")
+                if len(choreo) > 1 and not yielding:
                     errors.append(
                         f"{b_prefix} 缺少必填的 'yielding'（镜头让位指令）！多节拍镜头必须明确声明非焦点元素如何让位。"
                     )
+                elif isinstance(yielding, list):
+                    for y_i, rule in enumerate(yielding):
+                        if not isinstance(rule, dict) or not (rule.get("target") or "").strip():
+                            errors.append(f"{b_prefix}.yielding[{y_i}] 必须是包含非空 'target' 的对象。")
+                            continue
+                        unknown_y = set(rule.keys()) - ALLOWED_YIELDING_RULE_KEYS
+                        if unknown_y:
+                            errors.append(f"{b_prefix}.yielding[{y_i}] 包含未知属性 {sorted(unknown_y)}。")
+                        if "opacity" in rule:
+                            op = rule["opacity"]
+                            if not isinstance(op, (int, float)) or op < 0 or op > 1:
+                                errors.append(f"{b_prefix}.yielding[{y_i}].opacity 必须在 [0.0, 1.0] 之间。")
 
                 payload = beat.get("payload")
                 if payload is not None:
@@ -349,14 +391,14 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
                                 f"支持的参数为: {sorted(allowed_payload_keys)}"
                             )
 
-            # 5. 校验 phrase_anchor 与口播文本的严格匹配与单调顺序
+            # 6. 校验 phrase_anchor 与口播文本的严格匹配与单调顺序
             if narration:
                 try:
                     validate_and_locate_phrase_anchors(sid, narration, choreo)
                 except ValueError as ve:
                     errors.append(str(ve))
 
-        # 6. text_overlays 校验
+        # 7. text_overlays 校验
         overlays = scene.get("text_overlays")
         if overlays is not None:
             if not isinstance(overlays, list):
@@ -373,24 +415,26 @@ def validate_storyboard_v4_1(storyboard_path: Path) -> Dict[str, Any]:
 
     if errors:
         print("\n" + "=" * 78)
-        print(f"[✗] v4.1 可执行视觉编排校验未通过，共发现 {len(errors)} 处阻断问题：")
+        print(f"[✗] v4.2 可执行视觉编排校验未通过，共发现 {len(errors)} 处阻断问题：")
         for err in errors:
             print(f"    ✗ {err}")
         print("\n请由 Visual Director 与 Motion Designer 协同修复 workspace/storyboard.json 后重试。")
         print("=" * 78 + "\n")
         sys.exit(1)
 
-    # 若写回了自动解析的 renderer_id，保存更新
-    storyboard_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[✓] v4.1 可执行视觉编排与 Renderer Registry 校验通过! 共 {len(scenes)} 个镜头。")
+    print(f"[✓] v4.2 可执行视觉编排与 Renderer Registry 校验通过! 共 {len(scenes)} 个镜头。")
     return data
+
+
+# 保持向后兼容函数别名
+validate_storyboard_v4_1 = validate_storyboard_v4_2
 
 
 def select_hero_scene(scenes: List[Dict[str, Any]], explicit_hero_id: str = None) -> Dict[str, Any]:
     """
     选取最具代表性的核心机制样板镜头 (Hero Scene)：
     优先使用 Visual Director 显式指定的 hero_scene_id；
-    若未指定，自动选择非纯排版类、动作节拍最丰富的核心机制镜头（而非机械选择第 1 幕开场标题）。
+    若未指定，自动选择非纯排版类、动作节拍最丰富的核心机制镜头。
     """
     if explicit_hero_id:
         for s in scenes:
@@ -403,9 +447,16 @@ def select_hero_scene(scenes: List[Dict[str, Any]], explicit_hero_id: str = None
         rid = s.get("renderer_id", "")
         beats_count = len(s.get("visual_choreography") or [])
         score = beats_count * 10
-        if rid in ("PhysicalSimulation", "MechanicalStructure", "DataFlow"):
+        if rid in (
+            "particle_filter_v1",
+            "architecture_v1",
+            "dataflow_router_v1",
+            "PhysicalSimulation",
+            "MechanicalStructure",
+            "DataFlow",
+        ):
             score += 25
-        elif rid == "KineticTypography":
+        elif rid in ("kinetic_thesis_v1", "KineticTypography"):
             score -= 30
         if score > best_score:
             best_score = score
@@ -444,8 +495,41 @@ def audit_storyboard_facts(profile: dict, storyboard_path: Path):
         print(f"[✓] 文案数字审查通过: 当前实时 Star 数为 {stars:,} ({stars_fmt})")
 
 
+def enforce_final_render_qa_gate(workspace_dir: Path, qa_dir: Path):
+    """
+    v4.2 最终成片渲染硬门禁：
+    必须存在 visual_qa_report.json 且 overall_status == 'APPROVED'，否则严禁导出最终 MP4！
+    """
+    candidates = [qa_dir / "visual_qa_report.json", workspace_dir / "visual_qa_report.json"]
+    report_path = next((p for p in candidates if p.exists()), None)
+    if not report_path:
+        print("\n" + "=" * 78)
+        print("[✗] 交付门禁阻断: 未找到 visual_qa_report.json！")
+        print("    v4.2 严禁跳过四层视觉 QA 直接渲染最终成片。")
+        print("    请先运行: python scripts/visual_qa.py --props workspace/build_props.json --output-dir out/qa --mode full")
+        print("=" * 78 + "\n")
+        sys.exit(1)
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    status = report.get("overall_status")
+    if status != "APPROVED":
+        print("\n" + "=" * 78)
+        print(f"[✗] 交付门禁阻断: 当前 Visual QA 状态为 '{status}' (必须为 'APPROVED')！")
+        print(f"    报告路径: {report_path}")
+        print(f"    四层状态: {json.dumps(report.get('layers', {}), ensure_ascii=False)}")
+        if report.get("issues"):
+            print("    未解决阻断项:")
+            for iss in report["issues"]:
+                print(f"      - {iss}")
+        print("    请完成 Semantic QA 审片核验并修复所有 QA 问题后再执行最终成片渲染。")
+        print("=" * 78 + "\n")
+        sys.exit(1)
+
+    print(f"[✓] 最终成片交付门禁核验通过 (visual_qa_report.json overall_status == 'APPROVED')！")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="repo-to-video v4.1 Executable Visual Choreography runner")
+    parser = argparse.ArgumentParser(description="repo-to-video v4.2 Executable Visual Choreography runner")
     parser.add_argument("--repo", required=True, help="Target repository directory or URL")
     parser.add_argument("--workspace", default="workspace", help="Workspace folder for assets")
     parser.add_argument("--tts-url", default="http://192.168.8.106:8712/tts", help="Index-TTS URL")
@@ -454,16 +538,17 @@ def main():
     parser.add_argument("--speed", type=float, default=0.9, help="Speech speed factor (default: 0.9)")
     parser.add_argument("--fps", type=int, default=30, help="Target FPS")
     parser.add_argument(
-        "--hero-shot",
         "--first-shot",
+        "--hero-shot",
         dest="hero_shot",
         action="store_true",
-        help="Hero Shot Approval mode: build & render the designated hero_scene_id benchmark shot first",
+        help="First/Hero Shot Approval mode: build & render the designated hero_scene_id benchmark shot first",
     )
     parser.add_argument("--pilot", action="store_true", help="Build only the pilot cut (~30s preview)")
     parser.add_argument("--pilot-scenes", type=int, default=3, help="Max scenes to include in pilot preview")
     parser.add_argument("--render-pilot", action="store_true", help="Render out/pilot.mp4 automatically")
-    parser.add_argument("--run-qa", action="store_true", help="Run 4-layer visual_qa.py after build")
+    parser.add_argument("--run-qa", action="store_true", help="Run 4-layer visual_qa.py after build (enforces APPROVED exit code)")
+    parser.add_argument("--render-final", action="store_true", help="Render final out/video.mp4 (requires visual_qa_report.json == APPROVED)")
     args = parser.parse_args()
 
     workspace_dir = Path(args.workspace).resolve()
@@ -479,23 +564,23 @@ def main():
     profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[+] 项目类型判定: {profile['type']}")
 
-    # 2. 严格执行 v4.1 字段级白名单与 Renderer Registry 能力校验
-    print("\n=== [2/5] 执行 v4.1 分镜白名单、Renderer Registry 与动作锚点校验 ===")
+    # 2. 严格执行 v4.2 字段级白名单与 Renderer Registry 能力校验
+    print("\n=== [2/5] 执行 v4.2 分镜白名单、Renderer Registry 与动作锚点校验 ===")
     storyboard_path = workspace_dir / "storyboard.json"
-    storyboard_data = validate_storyboard_v4_1(storyboard_path)
+    storyboard_data = validate_storyboard_v4_2(storyboard_path)
     audit_storyboard_facts(profile, storyboard_path)
 
-    # 确定代表性样板镜头 (Hero Scene)
+    # 确定代表性样板镜头 (Hero / First Shot Scene)
     hero_scene_obj = select_hero_scene(
         storyboard_data["scenes"], storyboard_data.get("hero_scene_id")
     )
     hero_scene_id = hero_scene_obj["id"]
     print(
-        f"[+] 选定代表性样板审核镜头 (Hero Shot): '{hero_scene_id}' (Renderer: {hero_scene_obj.get('renderer_id')})"
+        f"[+] 选定代表性样板审核镜头 (First/Hero Shot): '{hero_scene_id}' (Renderer: {hero_scene_obj.get('renderer_id')})"
     )
 
     # 3. 语音合成与双层时间锚点对齐
-    print(f"\n=== [3/5] 短语级分段配音与声学强制对齐 (语速: {args.speed}x) ===")
+    print(f"\n=== [3/5] 短语级分段配音与强制对齐 (语速: {args.speed}x) ===")
     from tts_generator import process_storyboard
     target_sid = hero_scene_id if args.hero_shot else None
     max_scenes = args.pilot_scenes if (args.pilot and not args.hero_shot) else None
@@ -541,6 +626,9 @@ def main():
             "audioFrames": int(round(dur["duration_sec"] * args.fps)),
             "durationSec": dur["duration_sec"],
             "startFrame": dur["start_frame"],
+            "start_frame": dur["start_frame"],
+            "endFrame": dur["end_frame"],
+            "end_frame": dur["end_frame"],
             "audioUrl": f"audio/{dur['audio_file']}",
             "phrase_timings": dur.get("phrase_timings", []),
             "word_timings": dur.get("word_timings", []),
@@ -559,7 +647,7 @@ def main():
     motion_plan_path.write_text(
         json.dumps(
             {
-                "version": "4.1",
+                "version": "4.2",
                 "hero_scene_id": hero_scene_id,
                 "scenes": motion_plan_entries,
             },
@@ -579,7 +667,7 @@ def main():
     }
 
     build_props = {
-        "schemaVersion": "4.1",
+        "schemaVersion": "4.2",
         "title": storyboard_data.get("video_title") or profile.get("readme_title", profile["name"]),
         "repoName": storyboard_data.get("repo_name") or profile["name"],
         "repoUrl": storyboard_data.get("repo_url") or profile.get("repo_path", ""),
@@ -596,7 +684,7 @@ def main():
     props_path.write_text(json.dumps(build_props, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[+] Remotion 配置文件构建完成: {props_path}")
 
-    # 生成代表性样板镜头配置 (Hero Shot Approval)
+    # 生成代表性样板镜头配置 (统一兼容 build_props.first_shot.json 与 build_props.hero_shot.json)
     hero_assembled = next(
         (s for s in assembled_scenes if s["id"] == hero_scene_id),
         assembled_scenes[0] if assembled_scenes else None,
@@ -612,32 +700,61 @@ def main():
         hero_json = json.dumps(hero_shot_props, ensure_ascii=False, indent=2)
         hero_shot_path.write_text(hero_json, encoding="utf-8")
         first_shot_path.write_text(hero_json, encoding="utf-8")
-        print(f"[+] Hero Shot 样板审核配置已生成: {hero_shot_path} (镜头: {hero_assembled['id']})")
+        print(
+            f"[+] 样板审核配置已生成: {first_shot_path} & {hero_shot_path} (镜头: {hero_assembled['id']})"
+        )
+
+    qa_dir = Path("out/qa").resolve()
 
     if args.hero_shot:
-        print(f"\n=== [5/5] [Hero Shot Approval] 渲染代表性样板镜头 ({hero_scene_id}) 并执行四层 QA ===")
+        print(f"\n=== [5/5] [First/Hero Shot Approval] 渲染代表性样板镜头 ({hero_scene_id}) 并执行四层 QA ===")
         from visual_qa import run_visual_qa
-        qa_dir = Path("out/qa").resolve()
-        run_visual_qa(
-            props_path=workspace_dir / "build_props.hero_shot.json",
+        first_shot_mp4 = Path("out/first_shot.mp4").resolve()
+        hero_shot_mp4 = Path("out/hero_shot.mp4").resolve()
+        report = run_visual_qa(
+            props_path=workspace_dir / "build_props.first_shot.json",
             output_dir=qa_dir,
-            mode="hero-shot",
-            render_video_out=Path("out/hero_shot.mp4").resolve(),
+            mode="first-shot",
+            render_video_out=first_shot_mp4,
         )
-        print("\n✅ 代表性样板镜头已生成！请检查 out/hero_shot.mp4 与 out/qa/hero_shot_sheet.png。")
+        if first_shot_mp4.exists() and first_shot_mp4 != hero_shot_mp4:
+            shutil.copy2(first_shot_mp4, hero_shot_mp4)
+        print(
+            "\n✅ 代表性样板镜头已生成！请检查 out/first_shot.mp4 与 out/qa/first_shot_sheet.png。"
+        )
+        if report.get("overall_status") not in ("APPROVED", "PENDING_SEMANTIC_QA_REVIEW"):
+            sys.exit(1)
         return
 
     if args.run_qa:
         print("\n=== [5/5] 正在执行全片四层视觉 QA (Schema + Render + Motion + Semantic QA) ===")
         from visual_qa import run_visual_qa
-        qa_dir = Path("out/qa").resolve()
-        run_visual_qa(
+        report = run_visual_qa(
             props_path=props_path,
             output_dir=qa_dir,
             mode="full",
         )
+        if report.get("overall_status") != "APPROVED":
+            print(
+                f"\n[✗] 全片四层 Visual QA 未完全通过 (overall_status={report.get('overall_status')})，阻断自动交付！"
+            )
+            sys.exit(1)
 
-    print("\n✨ v4.1 全流程构建准备完毕！")
+    if args.render_final:
+        print("\n=== [Final Delivery Gate] 核验 QA 门禁并渲染最终成片 out/video.mp4 ===")
+        enforce_final_render_qa_gate(workspace_dir, qa_dir)
+        from visual_qa import resolve_remotion_workdir
+        remotion_dir = resolve_remotion_workdir()
+        final_mp4 = Path("out/video.mp4").resolve()
+        final_mp4.parent.mkdir(parents=True, exist_ok=True)
+        cmd = f'npx remotion render src/index.ts TutorialVideo "{final_mp4}" --props="{props_path}"'
+        res = subprocess.run(cmd, cwd=str(remotion_dir), shell=True)
+        if res.returncode != 0 or not final_mp4.exists():
+            print(f"[✗] 最终成片渲染失败: {final_mp4}")
+            sys.exit(1)
+        print(f"🎉 最终成片已通过全部四层 QA 并成功导出: {final_mp4}")
+
+    print("\n✨ v4.2 全流程构建执行完毕！")
 
 
 if __name__ == "__main__":

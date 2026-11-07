@@ -1,0 +1,102 @@
+{
+  "schema_version": "4.2",
+  "repo_name": "mem0-filter-benchmark",
+  "repo_type": "RUNNABLE",
+  "video_title": "Benchmark 01: AI 信息过滤与多面体结晶机制",
+  "hero_scene_id": "eval_filter_01",
+  "chapters": ["AI 信息过滤机制"],
+  "global_art_direction": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "soft_studio",
+    "camera_philosophy": "continuous_narrative_flow",
+    "max_element_budget": 4
+  },
+  "scenes": [
+    {
+      "id": "eval_filter_01",
+      "renderer_id": "particle_filter_v1",
+      "chapter": "AI 信息过滤机制",
+      "title": "高噪对话流物理分流与记忆结晶",
+      "continuity_group": "filter_lab_benchmark",
+      "narration": "当混杂着寒暄噪音的对话流涌入系统，三维涡轮分流器会将无效寒暄向下剔除，只把核心偏好凝聚成高纯度记忆晶体。",
+      "visual_intent": "通过粒子流、机械涡轮分离与二十面体结晶展示 AI 信息提纯过程",
+      "art_direction": {
+        "style": "premium_3d_editorial",
+        "lighting": "soft_studio",
+        "material": "translucent_glass",
+        "accent_color": "#78A9FF",
+        "element_budget": 4
+      },
+      "visual_world": {
+        "environment": "minimal_physical_laboratory",
+        "primary_object": "3d_filter_machine",
+        "secondary_objects": [
+          "information_particles",
+          "waste_container",
+          "purified_object"
+        ]
+      },
+      "visual_choreography": [
+        {
+          "beat": "对话流涌入",
+          "phrase_anchor": "当混杂着寒暄噪音的对话流涌入系统",
+          "action": "particles_flow",
+          "target": "information_particles",
+          "description": "多路信息粒子沿空间贝塞尔曲线高速进入过滤核心",
+          "camera": "slow_dolly_in",
+          "shot_scale": "wide",
+          "yielding": [
+            { "target": "waste_container", "opacity": 0.25, "scale": 0.92, "zOffset": -40, "blur": 1.5 },
+            { "target": "purified_object", "opacity": 0.3, "scale": 0.94, "zOffset": -36, "blur": 1.5 }
+          ],
+          "payload": {
+            "particle_count": 12,
+            "valid_ratio": 0.5,
+            "flow_speed": 1.15
+          }
+        },
+        {
+          "beat": "涡轮分流剔除",
+          "phrase_anchor": "三维涡轮分流器会将无效寒暄向下剔除",
+          "action": "separate",
+          "target": "3d_filter_machine",
+          "description": "中央涡轮高速旋转，灰色寒暄碎片受重力坠入回收仓",
+          "camera": "track_horizontal",
+          "shot_scale": "medium",
+          "yielding": [
+            { "target": "information_particles", "opacity": 0.32, "scale": 0.94, "zOffset": -30, "blur": 1.0 },
+            { "target": "purified_object", "opacity": 0.38, "scale": 0.95, "zOffset": -24, "blur": 1.0 }
+          ],
+          "payload": {
+            "gravity": 1.25
+          }
+        },
+        {
+          "beat": "二十面体结晶",
+          "phrase_anchor": "只把核心偏好凝聚成高纯度记忆晶体",
+          "action": "transform",
+          "target": "purified_object",
+          "description": "有效信号在右侧聚光灯下聚合为完整二十面体记忆晶体",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "yielding": [
+            { "target": "3d_filter_machine", "opacity": 0.24, "scale": 0.9, "zOffset": -60, "blur": 3.0 },
+            { "target": "waste_container", "opacity": 0.18, "scale": 0.88, "zOffset": -60, "blur": 3.5 },
+            { "target": "background_grid", "opacity": 0.15 }
+          ],
+          "payload": {
+            "crystal_facets": 20
+          }
+        }
+      ],
+      "text_overlays": [
+        {
+          "text": "信噪比提升 +97dB",
+          "role": "metric",
+          "beat_index": 2
+        }
+      ]
+    }
+  ]
+}

@@ -14,12 +14,30 @@ import registryManifest from "./registry_manifest.json";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
+/**
+ * v4.2 结构化让位规则 (Structured Yielding Rule)：
+ * 视觉导演在 beat.yielding 中声明每个非焦点目标（含 background_grid）的精确退让参数。
+ */
+export interface YieldingRule {
+  target: string;
+  opacity?: number;
+  scale?: number;
+  zOffset?: number;
+  blur?: number;
+}
+
 export interface YieldingDirective {
   dim_opacity?: number;
   blur_px?: number;
   push_back_z?: number;
   scale?: number;
   yield_targets?: string[];
+}
+
+export interface CameraConfig {
+  speed?: "slow" | "normal" | "fast" | number;
+  easing?: "cubic_in_out" | "cubic_out" | "linear" | string;
+  lookAt?: string;
 }
 
 export interface ChoreographyBeat {
@@ -29,9 +47,14 @@ export interface ChoreographyBeat {
   target: string;
   description: string;
   camera?: string;
+  camera_config?: CameraConfig;
   shot_scale?: "wide" | "medium" | "close_up" | "macro" | string;
-  yielding?: string | YieldingDirective;
+  yielding?: YieldingRule[] | YieldingDirective | string;
   payload?: Record<string, any>;
+  start_frame?: number;
+  end_frame?: number;
+  startFrame?: number;
+  endFrame?: number;
 }
 
 export interface VisualWorldSpec {
@@ -66,8 +89,43 @@ export interface SceneRendererProps {
   getYieldStyle: (objectId: string, objectLabel?: string) => React.CSSProperties;
 }
 
+/* ==========================================================================
+   三层可组合动画系统接口 (3-Tier Composable Animation Architecture v4.2)
+   1. SceneRenderer     — 空间舞台、环境灯光与槽位布局
+   2. ObjectRenderer    — 独立 3D / 2.5D 实体几何与材质规格
+   3. MotionPrimitive   — 可复用的运动学动作原语 (Kinematics Evaluator)
+   ========================================================================== */
+
+export interface ObjectRendererSpec {
+  id: string;
+  slot: string;
+  coords: [number, number, number];
+  defaultLabel: string;
+}
+
+export interface MotionPrimitiveKinematics {
+  progress: number;
+  translateX: number;
+  translateY: number;
+  translateZ: number;
+  scale: number;
+  rotateZ: number;
+  opacity: number;
+}
+
+export interface MotionPrimitive {
+  id: string;
+  tier: "MotionPrimitive";
+  category: string;
+  requiredPayload: string[];
+  optionalPayload: string[];
+  evaluate: (progress: number, payload?: Record<string, any>) => MotionPrimitiveKinematics;
+}
+
 export interface SceneRenderer {
   id: string;
+  aliases: string[];
+  component: string;
   name: string;
   category:
     | "PhysicalSimulation"
@@ -91,6 +149,38 @@ export function normalizeObjectId(
   return obj.id || obj.type || "";
 }
 
+const BUILTIN_OBJECT_LABELS: Record<string, string> = {
+  "3d_filter_machine": "物理过滤与提纯核心",
+  information_particles: "输入信息实体流",
+  signal_particles: "高维特征粒子群",
+  waste_container: "冗余噪音回收仓",
+  purified_object: "提纯结构晶体",
+  morphing_crystal: "多面体聚合晶体",
+  layered_architecture: "多层异构架构模组",
+  mechanical_core: "多轴机械分离核心",
+  rotor_ring_assembly: "精密涡轮分离环",
+  sqlite_ledger_slab: "L1 · SQLite 审计流水层",
+  vector_index_slab: "L2 · 语义向量索引层",
+  graph_topology_slab: "L3 · 实体关系拓扑层",
+  optical_data_bus: "跨层高速光路总线",
+  converged_answer_crystal: "高置信度融合输出",
+  state_timeline_track: "时序状态演进导轨",
+  multi_probe_router: "多通道信号路由阵列",
+  spatial_topology_graph: "三维空间关系网络",
+  agent_dispatcher_core: "Agent 核心调度中枢",
+  skill_tool_slot: "Skill 工具执行槽位",
+  api_client_origin: "客户端请求发起端",
+  api_gateway_endpoint: "API 网关与鉴权端点",
+  request_packets: "结构化请求报文流",
+  response_payload_crystal: "流式响应载荷晶体",
+  physical_balance_stage: "空间负载与精度对比台",
+  authentic_code_viewport: "核心源码实现视口",
+  authentic_terminal_bench: "CLI 实机运行工作台",
+  authentic_ui_showcase: "产品交互界面实测",
+  editorial_thesis_monolith: "核心技术命题碑",
+  background_grid: "空间基准网格",
+};
+
 export function normalizeObjectLabel(
   obj: string | { id?: string; type: string; label?: string } | undefined,
   labelsMap?: Record<string, string>
@@ -98,31 +188,7 @@ export function normalizeObjectLabel(
   const id = normalizeObjectId(obj);
   if (typeof obj === "object" && obj.label) return obj.label;
   if (labelsMap && labelsMap[id]) return labelsMap[id];
-  const builtin: Record<string, string> = {
-    "3d_filter_machine": "物理过滤与提纯核心",
-    information_particles: "输入信息实体流",
-    signal_particles: "高维特征粒子群",
-    waste_container: "冗余噪音回收仓",
-    purified_object: "提纯结构晶体",
-    morphing_crystal: "多面体聚合晶体",
-    layered_architecture: "多层异构架构模组",
-    mechanical_core: "多轴机械分离核心",
-    rotor_ring_assembly: "精密涡轮分离环",
-    sqlite_ledger_slab: "L1 · SQLite 审计流水层",
-    vector_index_slab: "L2 · 语义向量索引层",
-    graph_topology_slab: "L3 · 实体关系拓扑层",
-    optical_data_bus: "跨层高速光路总线",
-    converged_answer_crystal: "高置信度融合输出",
-    state_timeline_track: "时序状态演进导轨",
-    multi_probe_router: "多通道信号路由阵列",
-    spatial_topology_graph: "三维空间关系网络",
-    physical_balance_stage: "空间负载与精度对比台",
-    authentic_code_viewport: "核心源码实现视口",
-    authentic_terminal_bench: "CLI 实机运行工作台",
-    authentic_ui_showcase: "产品交互界面实测",
-    editorial_thesis_monolith: "核心技术命题碑",
-  };
-  return builtin[id] || id.replace(/_/g, " ");
+  return BUILTIN_OBJECT_LABELS[id] || id.replace(/_/g, " ");
 }
 
 export function isTargetMatched(candidateId: string, beatTarget: string): boolean {
@@ -132,10 +198,116 @@ export function isTargetMatched(candidateId: string, beatTarget: string): boolea
   return a === b || a.includes(b) || b.includes(a);
 }
 
+/* ==========================================================================
+   Tier 2: ObjectRenderer Registry (含 3D 空间坐标供相机 lookAt 追踪)
+   ========================================================================== */
+export const OBJECT_RENDERER_REGISTRY: Map<string, ObjectRendererSpec> = new Map();
+
+for (const [objId, spec] of Object.entries(
+  (registryManifest.object_renderers || {}) as Record<string, { slot: string; coords: number[] }>
+)) {
+  OBJECT_RENDERER_REGISTRY.set(objId, {
+    id: objId,
+    slot: spec.slot,
+    coords: [spec.coords[0] || 0, spec.coords[1] || 0, spec.coords[2] || 0],
+    defaultLabel: BUILTIN_OBJECT_LABELS[objId] || objId,
+  });
+}
+
+export function getObject3DCoords(targetId: string): [number, number, number] {
+  if (!targetId) return [0, 0, 0];
+  if (OBJECT_RENDERER_REGISTRY.has(targetId)) {
+    return OBJECT_RENDERER_REGISTRY.get(targetId)!.coords;
+  }
+  for (const [id, spec] of OBJECT_RENDERER_REGISTRY.entries()) {
+    if (isTargetMatched(id, targetId)) {
+      return spec.coords;
+    }
+  }
+  return [0, 0, 0];
+}
+
+/* ==========================================================================
+   Tier 3: MotionPrimitive Registry (可复用动作运动学原语)
+   ========================================================================== */
+export const MOTION_PRIMITIVE_REGISTRY: Map<string, MotionPrimitive> = new Map();
+
+for (const [actionId, spec] of Object.entries(
+  (registryManifest.motion_primitives || {}) as Record<
+    string,
+    { tier: string; category: string; required_payload: string[]; optional_payload: string[] }
+  >
+)) {
+  MOTION_PRIMITIVE_REGISTRY.set(actionId, {
+    id: actionId,
+    tier: "MotionPrimitive",
+    category: spec.category,
+    requiredPayload: spec.required_payload || [],
+    optionalPayload: spec.optional_payload || [],
+    evaluate: (progress: number, payload: Record<string, any> = {}): MotionPrimitiveKinematics => {
+      const p = interpolate(progress, [0, 1], [0, 1], clamp);
+      switch (actionId) {
+        case "explode_layers":
+        case "disassemble": {
+          const dist = typeof payload.explode_distance === "number" ? payload.explode_distance : 36;
+          return {
+            progress: p,
+            translateX: 0,
+            translateY: p * dist,
+            translateZ: p * 24,
+            scale: 1 + p * 0.03,
+            rotateZ: 0,
+            opacity: 1,
+          };
+        }
+        case "assemble":
+        case "interlock":
+        case "crystallize":
+        case "transform": {
+          return {
+            progress: p,
+            translateX: 0,
+            translateY: (1 - p) * 18,
+            translateZ: p * 32,
+            scale: interpolate(p, [0, 0.7, 1], [0.92, 1.06, 1.02], clamp),
+            rotateZ: (1 - p) * 8,
+            opacity: interpolate(p, [0, 0.2, 1], [0.6, 1, 1], clamp),
+          };
+        }
+        case "dispatch_tool":
+        case "send_request":
+        case "stream_response":
+        case "emit_probes":
+        case "route_parallel": {
+          return {
+            progress: p,
+            translateX: interpolate(p, [0, 1], [-24, 24], clamp),
+            translateY: 0,
+            translateZ: interpolate(p, [0, 0.5, 1], [0, 28, 12], clamp),
+            scale: interpolate(p, [0, 0.5, 1], [0.96, 1.05, 1.0], clamp),
+            rotateZ: 0,
+            opacity: 1,
+          };
+        }
+        default:
+          return {
+            progress: p,
+            translateX: 0,
+            translateY: 0,
+            translateZ: p * 20,
+            scale: 1 + p * 0.03,
+            rotateZ: 0,
+            opacity: 1,
+          };
+      }
+    },
+  });
+}
+
 /**
- * 通用镜头让位执行器 (Universal Yielding Engine)：
- * 真正读取并解析 beat.yielding（支持结构化对象或自然语言导演指令），
- * 驱动非焦点物体的 opacity、filter(blur)、translateZ 与 scale！
+ * 通用结构化镜头让位执行器 (Universal Structured Yielding Engine v4.2)：
+ * 优先执行结构化数组 beat.yielding: YieldingRule[]（例如 [{"target": "background_grid", "opacity": 0.15}, {"target": "information_particles", "opacity": 0.3, "scale": 0.94, "zOffset": -40, "blur": 2}]），
+ * 同时兼容对象和自然语言指令，真正驱动每个非焦点元素与背景网格的 opacity、scale、translateZ、filter(blur)。
  */
 export function createYieldStyleResolver(
   activeBeat: ChoreographyBeat,
@@ -144,30 +316,78 @@ export function createYieldStyleResolver(
 ) {
   return (objectId: string, objectLabel?: string): React.CSSProperties => {
     const label = objectLabel || normalizeObjectLabel(objectId, labelsMap);
+    const isBackgroundGrid = objectId === "background_grid";
     const isFocalTarget =
-      isTargetMatched(objectId, activeBeat.target) ||
-      isTargetMatched(label, activeBeat.target);
+      !isBackgroundGrid &&
+      (isTargetMatched(objectId, activeBeat.target) ||
+        isTargetMatched(label, activeBeat.target));
+
+    const t = interpolate(beatProgress, [0, 0.35], [0, 1], clamp);
+    const yieldingSpec = activeBeat.yielding;
+
+    // 1. 优先检查结构化数组 YieldingRule[]
+    if (Array.isArray(yieldingSpec)) {
+      const matchedRule = yieldingSpec.find(
+        (rule) =>
+          rule &&
+          typeof rule.target === "string" &&
+          (isTargetMatched(objectId, rule.target) ||
+            (label && isTargetMatched(label, rule.target)) ||
+            (!isBackgroundGrid && !isFocalTarget && (rule.target === "*" || rule.target === "non_focal")))
+      );
+
+      if (matchedRule) {
+        const targetOpacity =
+          typeof matchedRule.opacity === "number" ? matchedRule.opacity : isBackgroundGrid ? 0.18 : 0.32;
+        const targetScale =
+          typeof matchedRule.scale === "number" ? matchedRule.scale : isBackgroundGrid ? 1.0 : 0.94;
+        const targetZ =
+          typeof matchedRule.zOffset === "number" ? matchedRule.zOffset : isBackgroundGrid ? 0 : -36;
+        const targetBlur =
+          typeof matchedRule.blur === "number" ? matchedRule.blur : isBackgroundGrid ? 0 : 1.5;
+
+        const baseOpacity = isBackgroundGrid ? 1.0 : 0.82;
+        return {
+          opacity: Number(interpolate(t, [0, 1], [baseOpacity, targetOpacity], clamp).toFixed(3)),
+          filter: targetBlur > 0 ? `blur(${(targetBlur * t).toFixed(1)}px)` : "none",
+          transform:
+            targetZ !== 0 || targetScale !== 1
+              ? `translateZ(${(targetZ * t).toFixed(1)}px) scale(${interpolate(
+                  t,
+                  [0, 1],
+                  [1, targetScale],
+                  clamp
+                ).toFixed(3)})`
+              : undefined,
+        };
+      }
+    }
+
+    if (isBackgroundGrid) {
+      if (typeof yieldingSpec === "string" && yieldingSpec.includes("网格")) {
+        return {
+          opacity: Number(interpolate(t, [0, 1], [1, 0.22], clamp).toFixed(3)),
+        };
+      }
+      return { opacity: 1 };
+    }
 
     if (isFocalTarget) {
       return {
         opacity: 1,
         filter: "blur(0px)",
-        transform: `translateZ(${interpolate(beatProgress, [0, 0.4], [0, 28], clamp)}px) scale(${interpolate(
-          beatProgress,
-          [0, 0.4],
-          [1, 1.04],
-          clamp
-        )})`,
+        transform: `translateZ(${interpolate(beatProgress, [0, 0.4], [0, 28], clamp).toFixed(
+          1
+        )}px) scale(${interpolate(beatProgress, [0, 0.4], [1, 1.04], clamp).toFixed(3)})`,
       };
     }
 
-    const yieldingSpec = activeBeat.yielding;
     let dimOpacity = 0.36;
     let blurPx = 1.5;
     let pushBackZ = -36;
     let yieldScale = 0.94;
 
-    if (typeof yieldingSpec === "object" && yieldingSpec !== null) {
+    if (typeof yieldingSpec === "object" && yieldingSpec !== null && !Array.isArray(yieldingSpec)) {
       if (typeof yieldingSpec.dim_opacity === "number") dimOpacity = yieldingSpec.dim_opacity;
       if (typeof yieldingSpec.blur_px === "number") blurPx = yieldingSpec.blur_px;
       if (typeof yieldingSpec.push_back_z === "number") pushBackZ = yieldingSpec.push_back_z;
@@ -199,23 +419,23 @@ export function createYieldStyleResolver(
       }
     }
 
-    const t = interpolate(beatProgress, [0, 0.35], [0, 1], clamp);
     return {
-      opacity: interpolate(t, [0, 1], [0.75, dimOpacity]),
+      opacity: Number(interpolate(t, [0, 1], [0.75, dimOpacity], clamp).toFixed(3)),
       filter: `blur(${(blurPx * t).toFixed(1)}px)`,
       transform: `translateZ(${(pushBackZ * t).toFixed(1)}px) scale(${interpolate(
         t,
         [0, 1],
-        [1, yieldScale]
+        [1, yieldScale],
+        clamp
       ).toFixed(3)})`,
     };
   };
 }
 
 /* ==========================================================================
-   组件 1: PhysicalSimulation (3D 粒子流、碰撞分流与多面体结晶形态变化)
+   组件 1: particle_filter_v1 / PhysicalSimulation (FilterLaboratoryStage)
    融合 SVG 曲线 + ThreeHybridCanvas (MechanicalRotor3D + MorphingPolyhedron3D)
-   并消费 beat.payload (particle_count, valid_ratio, flow_speed, gravity, token_labels)
+   完全通过 getYieldStyle 与 beat.payload 驱动，零硬编码状态覆盖
    ========================================================================== */
 const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
   f,
@@ -223,11 +443,8 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
   theme,
   material,
   world,
-  beats,
   beatWindows,
-  activeBeatIdx,
   activeBeat,
-  beatProgress,
   getYieldStyle,
 }) => {
   const labels = world.object_labels || {};
@@ -273,16 +490,22 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
     { ...clamp, easing: Easing.out(Easing.cubic) }
   );
 
+  const primaryObjId = normalizeObjectId(world.primary_object) || "3d_filter_machine";
+  const particlesYield = getYieldStyle(
+    "information_particles",
+    normalizeObjectLabel("information_particles", labels)
+  );
   const filterYield = getYieldStyle(
-    normalizeObjectId(world.primary_object),
+    primaryObjId,
     normalizeObjectLabel(world.primary_object, labels)
   );
   const wasteYield = getYieldStyle("waste_container", normalizeObjectLabel("waste_container", labels));
   const purifiedYield = getYieldStyle("purified_object", normalizeObjectLabel("purified_object", labels));
 
-  const isFilterFocal = isTargetMatched(normalizeObjectId(world.primary_object), activeBeat.target) ||
-    activeBeat.action === "separate";
-  const isPurifiedFocal = isTargetMatched("purified_object", activeBeat.target) ||
+  const isFilterFocal =
+    isTargetMatched(primaryObjId, activeBeat.target) || activeBeat.action === "separate";
+  const isPurifiedFocal =
+    isTargetMatched("purified_object", activeBeat.target) ||
     activeBeat.action === "transform" ||
     activeBeat.action === "crystallize";
 
@@ -290,7 +513,7 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
   const crystalStyle = resolveMaterialSurface(material, theme, isPurifiedFocal);
 
   const particles = Array.from({ length: particleCount }).map((_, idx) => {
-    const valid = (idx / particleCount) < validRatio || idx % 2 === 0;
+    const valid = idx / particleCount < validRatio || idx % 2 === 0;
     const y0 = ((idx % 5) - 2) * 52;
     const z0 = ((idx % 3) - 1) * 20;
     return {
@@ -301,6 +524,9 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
       label: customTokenLabels[idx % customTokenLabels.length],
     };
   });
+
+  const particleGroupOpacity =
+    typeof particlesYield.opacity === "number" ? particlesYield.opacity : 1;
 
   return (
     <div
@@ -319,7 +545,7 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
           top: 90,
           width: 460,
           height: 440,
-          ...getYieldStyle("information_particles", normalizeObjectLabel("information_particles", labels)),
+          ...particlesYield,
         }}
       >
         <div
@@ -368,7 +594,7 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
         </svg>
       </div>
 
-      {/* 动态粒子实体群 */}
+      {/* 动态粒子实体群（受粒子流让位规则与物理参数双重驱动） */}
       {particles.map((pt, idx) => {
         const stagger = idx * 0.05;
         const pFlow = interpolate(flowProgress, [stagger, Math.min(1, stagger + 0.65)], [0, 1], clamp);
@@ -378,7 +604,7 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
         let x = interpolate(pFlow, [0, 1], [76 + (idx % 3) * 32, 640]);
         let y = interpolate(pFlow, [0, 1], [300 + pt.y0, 300 + pt.y0 * 0.22]);
         let scale = 1;
-        let opacity = interpolate(pFlow, [0, 0.15], [0, 1], clamp);
+        let opacity = interpolate(pFlow, [0, 0.15], [0, 1], clamp) * particleGroupOpacity;
 
         if (pSep > 0) {
           if (pt.valid) {
@@ -389,7 +615,7 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
             const dropEase = Math.pow(pSep, 1.8) * gravityFactor;
             y = interpolate(Math.min(1, dropEase), [0, 1], [300 + pt.y0 * 0.22, 565]);
             scale = interpolate(pSep, [0, 1], [1, 0.76]);
-            opacity = interpolate(pSep, [0, 0.85, 1], [0.95, 0.7, 0.4]);
+            opacity = interpolate(pSep, [0, 0.85, 1], [0.95, 0.7, 0.4]) * particleGroupOpacity;
           }
         }
 
@@ -653,9 +879,8 @@ const PhysicalSimulationRenderer: React.FC<SceneRendererProps> = ({
 };
 
 /* ==========================================================================
-   组件 2: MechanicalStructure (3D 多层机械结构拆解、旋转与重组)
-   支持动作：explode_layers / disassemble / rotate_rotor / interlock / scan_layer / assemble
-   消费 payload: explode_distance, focus_layer, rotor_rpm
+   组件 2: architecture_v1 / MechanicalStructure (LayeredArchitectureStage)
+   支持动作：explode_layers / disassemble / rotate_rotor / interlock / scan_layer / connect_bus / assemble
    ========================================================================== */
 const MechanicalStructureRenderer: React.FC<SceneRendererProps> = ({
   f,
@@ -663,8 +888,6 @@ const MechanicalStructureRenderer: React.FC<SceneRendererProps> = ({
   theme,
   material,
   world,
-  beats,
-  activeBeatIdx,
   activeBeat,
   getYieldStyle,
 }) => {
@@ -690,6 +913,9 @@ const MechanicalStructureRenderer: React.FC<SceneRendererProps> = ({
       })
     : 0;
   const spreadFactor = explodeT * (1 - assembleT * 0.72);
+
+  const primaryId = normalizeObjectId(world.primary_object) || "layered_architecture";
+  const coreYield = getYieldStyle(primaryId, normalizeObjectLabel(world.primary_object, labels));
 
   return (
     <div
@@ -725,9 +951,7 @@ const MechanicalStructureRenderer: React.FC<SceneRendererProps> = ({
             activeBeat.action === "explode_layers" ||
             activeBeat.action === "assemble";
 
-          const yieldStyle = targeted
-            ? { opacity: 1, filter: "blur(0px)" }
-            : getYieldStyle(objId, label);
+          const yieldStyle = getYieldStyle(objId, label);
           const offsetY = (idx - (Math.min(3, secObjs.length) - 1) / 2) * explodeDist * spreadFactor;
           const surface = resolveMaterialSurface(material, theme, targeted);
 
@@ -813,6 +1037,7 @@ const MechanicalStructureRenderer: React.FC<SceneRendererProps> = ({
           height: 460,
           borderRadius: 26,
           ...resolveMaterialSurface(material, theme, true),
+          ...coreYield,
           padding: "24px 28px",
           display: "flex",
           flexDirection: "column",
@@ -852,8 +1077,8 @@ const MechanicalStructureRenderer: React.FC<SceneRendererProps> = ({
 };
 
 /* ==========================================================================
-   组件 3: DataFlow (多路数据流、三维空间拓扑网络与探针汇聚)
-   融合 SVG + SpatialTopologyNetwork3D，消费 payload: weights, confidence_target
+   组件 3: dataflow_router_v1 / DataFlow (MultiProbeRouterStage)
+   支持多路探针路由、Agent Skill 调度 (dispatch_tool) 与 API 全生命周期 (send_request / stream_response)
    ========================================================================== */
 const DataFlowRenderer: React.FC<SceneRendererProps> = ({
   f,
@@ -879,7 +1104,11 @@ const DataFlowRenderer: React.FC<SceneRendererProps> = ({
   const confTarget = typeof payload.confidence_target === "number" ? payload.confidence_target : 98.6;
   const convergeT = interpolate(f, [duration * 0.4, duration - 10], [0, 1], clamp);
   const isConverging =
-    activeBeat.action === "converge_result" || activeBeatIdx === beats.length - 1;
+    activeBeat.action === "converge_result" ||
+    activeBeat.action === "stream_response" ||
+    activeBeatIdx === beats.length - 1;
+
+  const primaryId = normalizeObjectId(world.primary_object) || "multi_probe_router";
 
   return (
     <div
@@ -893,7 +1122,7 @@ const DataFlowRenderer: React.FC<SceneRendererProps> = ({
         padding: "0 42px",
       }}
     >
-      {/* 左侧：多通道探针阵列 */}
+      {/* 左侧：多通道探针 / Skill 槽位 / API 链路节点阵列 */}
       <div
         style={{
           width: 680,
@@ -986,7 +1215,7 @@ const DataFlowRenderer: React.FC<SceneRendererProps> = ({
           height: 460,
           borderRadius: 28,
           ...resolveMaterialSurface(material, theme, true),
-          ...getYieldStyle(normalizeObjectId(world.primary_object)),
+          ...getYieldStyle(primaryId, normalizeObjectLabel(world.primary_object, labels)),
           padding: "24px 30px",
           display: "flex",
           flexDirection: "column",
@@ -1025,7 +1254,7 @@ const DataFlowRenderer: React.FC<SceneRendererProps> = ({
 };
 
 /* ==========================================================================
-   组件 4: SystemArchitecture (时序状态演进与空间负载对比)
+   组件 4: timeline_state_v1 / SystemArchitecture (StateTimelineStage)
    支持动作：append_state / anchor_timestamp / trace_lineage / overload_collapse / precision_extract
    ========================================================================== */
 const SystemArchitectureRenderer: React.FC<SceneRendererProps> = ({
@@ -1034,7 +1263,6 @@ const SystemArchitectureRenderer: React.FC<SceneRendererProps> = ({
   theme,
   material,
   world,
-  beats,
   activeBeatIdx,
   activeBeat,
   getYieldStyle,
@@ -1052,6 +1280,9 @@ const SystemArchitectureRenderer: React.FC<SceneRendererProps> = ({
       activeBeatIdx > 0 || activeBeat.action === "precision_extract";
     const overloadTokens = payload.overload_tokens || "26,000 TOKENS";
     const precisionTokens = payload.precision_tokens || "3 NODES / 0.14s";
+
+    const overloadYield = getYieldStyle("unfiltered_monolith");
+    const precisionYield = getYieldStyle("precision_extraction_core");
 
     return (
       <div
@@ -1071,9 +1302,7 @@ const SystemArchitectureRenderer: React.FC<SceneRendererProps> = ({
             height: 460,
             borderRadius: 24,
             ...resolveMaterialSurface(material, theme, !isPrecisionPhase),
-            opacity: isPrecisionPhase ? 0.32 : 1,
-            filter: isPrecisionPhase ? "blur(2.5px)" : "none",
-            transform: `scale(${isPrecisionPhase ? 0.93 : 1.02})`,
+            ...overloadYield,
             padding: "28px 32px",
             display: "flex",
             flexDirection: "column",
@@ -1131,8 +1360,7 @@ const SystemArchitectureRenderer: React.FC<SceneRendererProps> = ({
             height: 460,
             borderRadius: 24,
             ...resolveMaterialSurface(material, theme, isPrecisionPhase),
-            opacity: isPrecisionPhase ? 1 : 0.45,
-            transform: `scale(${isPrecisionPhase ? 1.05 : 0.95})`,
+            ...precisionYield,
             padding: "28px 34px",
             display: "flex",
             flexDirection: "column",
@@ -1291,8 +1519,8 @@ const SystemArchitectureRenderer: React.FC<SceneRendererProps> = ({
 };
 
 /* ==========================================================================
-   组件 5: ProductInterface (真实代码、CLI 终端与产品 UI 交互)
-   消费 payload: lines, command_index, zoom_region
+   组件 5: product_interface_v1 / ProductInterface (AuthenticProductDemoStage)
+   真实代码、CLI 终端与产品 UI 交互，严格校验 authentic_assets，绝不将兜底代码冒充为 AUTHENTIC SOURCE
    ========================================================================== */
 const ProductInterfaceRenderer: React.FC<SceneRendererProps> = ({
   f,
@@ -1304,9 +1532,10 @@ const ProductInterfaceRenderer: React.FC<SceneRendererProps> = ({
 }) => {
   const assets = world.authentic_assets || {};
   const payload = activeBeat.payload || {};
-  const code =
-    assets.code_snippet ||
-    `from core.engine import Pipeline\n\npipeline = Pipeline(mode="strict_v4_1")\nresult = pipeline.run(input_stream)\nprint(result.metrics)`;
+  const hasAuthenticCode = Boolean(assets.code_snippet && assets.code_snippet.trim().length > 0);
+  const code = hasAuthenticCode
+    ? assets.code_snippet!
+    : `# [SCHEMATIC PREVIEW - MISSING authentic_assets.code_snippet]\n# Please populate visual_world.authentic_assets from repository source`;
   const codeLines = code.split("\n");
   const commands = assets.terminal_commands || [];
   const metrics = assets.metrics || [];
@@ -1336,7 +1565,7 @@ const ProductInterfaceRenderer: React.FC<SceneRendererProps> = ({
           flex: commands.length > 0 ? 1.35 : 1.7,
           borderRadius: 20,
           background: "#0D1117",
-          border: `1.5px solid ${theme.accent}88`,
+          border: `1.5px solid ${hasAuthenticCode ? `${theme.accent}88` : "#F59E0B"}`,
           boxShadow: "0 28px 64px rgba(0,0,0,0.68)",
           ...codeYield,
           display: "flex",
@@ -1368,11 +1597,18 @@ const ProductInterfaceRenderer: React.FC<SceneRendererProps> = ({
                 fontWeight: 700,
               }}
             >
-              {assets.filename || "src/core/pipeline.py"}
+              {assets.filename || "UNSPECIFIED_FILE"}
             </span>
           </div>
-          <span style={{ fontSize: 12, fontFamily: MONO, color: theme.accent }}>
-            AUTHENTIC SOURCE
+          <span
+            style={{
+              fontSize: 12,
+              fontFamily: MONO,
+              color: hasAuthenticCode ? theme.accent : "#F59E0B",
+              fontWeight: 700,
+            }}
+          >
+            {hasAuthenticCode ? "AUTHENTIC SOURCE // VERIFIED" : "SCHEMATIC PREVIEW // UNVERIFIED"}
           </span>
         </div>
 
@@ -1502,7 +1738,7 @@ const ProductInterfaceRenderer: React.FC<SceneRendererProps> = ({
 };
 
 /* ==========================================================================
-   组件 6: KineticTypography (高级编辑动态排版与核心命题揭示)
+   组件 6: kinetic_thesis_v1 / KineticTypography (KineticTypographyStage)
    ========================================================================== */
 const KineticTypographyRenderer: React.FC<SceneRendererProps> = ({
   theme,
@@ -1579,25 +1815,43 @@ const KineticTypographyRenderer: React.FC<SceneRendererProps> = ({
 };
 
 /* ==========================================================================
-   Renderer Registry 核心注册表与能力匹配引擎
+   Tier 1: SceneRenderer Registry 核心注册表与严格 renderer_id 路由引擎
    ========================================================================== */
 const COMPONENT_IMPLEMENTATIONS: Record<string, React.FC<SceneRendererProps>> = {
+  particle_filter_v1: PhysicalSimulationRenderer,
   PhysicalSimulation: PhysicalSimulationRenderer,
+  FilterLaboratoryStage: PhysicalSimulationRenderer,
+  architecture_v1: MechanicalStructureRenderer,
   MechanicalStructure: MechanicalStructureRenderer,
+  LayeredArchitectureStage: MechanicalStructureRenderer,
+  dataflow_router_v1: DataFlowRenderer,
   DataFlow: DataFlowRenderer,
+  MultiProbeRouterStage: DataFlowRenderer,
+  timeline_state_v1: SystemArchitectureRenderer,
   SystemArchitecture: SystemArchitectureRenderer,
+  StateTimelineStage: SystemArchitectureRenderer,
+  product_interface_v1: ProductInterfaceRenderer,
   ProductInterface: ProductInterfaceRenderer,
+  AuthenticProductDemoStage: ProductInterfaceRenderer,
+  kinetic_thesis_v1: KineticTypographyRenderer,
   KineticTypography: KineticTypographyRenderer,
+  KineticTypographyStage: KineticTypographyRenderer,
 };
 
 export const SCENE_RENDERER_REGISTRY: Map<string, SceneRenderer> = new Map();
 
-// 从共享 manifest 初始化注册表
+// 从唯一数据源 renderer-registry.json / registry_manifest.json 初始化注册表（同时注册主 ID 与别名）
 for (const entry of registryManifest.renderers) {
-  const impl = COMPONENT_IMPLEMENTATIONS[entry.id];
+  const impl =
+    COMPONENT_IMPLEMENTATIONS[entry.id] ||
+    COMPONENT_IMPLEMENTATIONS[(entry as any).component] ||
+    ((entry as any).aliases || []).map((a: string) => COMPONENT_IMPLEMENTATIONS[a]).find(Boolean);
+
   if (impl) {
-    SCENE_RENDERER_REGISTRY.set(entry.id, {
+    const rendererObj: SceneRenderer = {
       id: entry.id,
+      aliases: (entry as any).aliases || [],
+      component: (entry as any).component || entry.id,
       name: entry.name,
       category: entry.category as SceneRenderer["category"],
       supportedActions: entry.supportedActions,
@@ -1605,46 +1859,33 @@ for (const entry of registryManifest.renderers) {
       supportedCameras: entry.supportedCameras,
       supportedEnvironments: entry.supportedEnvironments,
       render: (props) => React.createElement(impl, props),
-    });
+    };
+    SCENE_RENDERER_REGISTRY.set(entry.id, rendererObj);
+    for (const alias of rendererObj.aliases) {
+      SCENE_RENDERER_REGISTRY.set(alias, rendererObj);
+    }
+    if (rendererObj.component) {
+      SCENE_RENDERER_REGISTRY.set(rendererObj.component, rendererObj);
+    }
   }
 }
 
 /** 支持 Motion Designer 为特定复杂镜头注册新的自定义场景渲染器 */
 export function registerCustomSceneRenderer(renderer: SceneRenderer) {
   SCENE_RENDERER_REGISTRY.set(renderer.id, renderer);
+  for (const alias of renderer.aliases || []) {
+    SCENE_RENDERER_REGISTRY.set(alias, renderer);
+  }
 }
 
 /**
- * 严格根据 renderer_id 或 (primary_object + actions) 匹配已注册的 SceneRenderer。
- * 绝不静默降级！若未找到匹配的能力组件，返回 null 由上层显式报错。
+ * v4.2 严格 renderer_id 路由：
+ * 仅根据分镜显式声明的 renderer_id 从 SCENE_RENDERER_REGISTRY 获取对应组件。
+ * 彻底移除根据 primary_object 或 actions 字符串猜测路由的启发式兜底，未注册或缺失直接返回 null 触发显式报错。
  */
-export function resolveSceneRenderer(
-  rendererId: string | undefined,
-  primaryObjectId: string,
-  actions: string[]
-): SceneRenderer | null {
-  if (rendererId && SCENE_RENDERER_REGISTRY.has(rendererId)) {
-    return SCENE_RENDERER_REGISTRY.get(rendererId)!;
+export function resolveSceneRenderer(rendererId: string | undefined): SceneRenderer | null {
+  if (!rendererId || !rendererId.trim()) {
+    return null;
   }
-
-  let bestRenderer: SceneRenderer | null = null;
-  let bestScore = 0;
-
-  for (const renderer of SCENE_RENDERER_REGISTRY.values()) {
-    let score = 0;
-    if (renderer.supportedObjects.includes(primaryObjectId)) {
-      score += 5;
-    }
-    for (const act of actions) {
-      if (renderer.supportedActions.includes(act)) {
-        score += 3;
-      }
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestRenderer = renderer;
-    }
-  }
-
-  return bestScore > 0 ? bestRenderer : null;
+  return SCENE_RENDERER_REGISTRY.get(rendererId.trim()) || null;
 }

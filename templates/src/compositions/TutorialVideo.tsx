@@ -8,11 +8,14 @@ import { Subtitles, PhraseTiming, WordTiming } from "../components/Subtitles";
 import { Background } from "../components/Background";
 import { ChapterBar, ChapterSpan } from "../components/ChapterBar";
 import {
+  CameraPose3D,
   ChoreographedScene,
   ChoreographyBeat,
   BeatTiming,
   TextOverlayItem,
   VisualWorldSpec,
+  computeEndingCameraPose,
+  resolveActiveGridYieldStyle,
 } from "../components/ChoreographedScene";
 import { GlobalArtDirection, SceneArtDirection } from "../theme";
 import {
@@ -40,6 +43,7 @@ import {
 
 export interface SceneData {
   id: string;
+  renderer_id?: string;
   chapter?: string;
   title?: string;
   type?: string;
@@ -56,6 +60,7 @@ export interface SceneData {
   durationInFrames: number;
   audioFrames?: number;
   audioUrl?: string;
+  debugMode?: boolean;
   data?: any;
 }
 
@@ -67,8 +72,26 @@ export interface TutorialVideoProps {
   repoType: string;
   chapters?: string[];
   globalArtDirection?: GlobalArtDirection;
+  debugMode?: boolean;
   scenes: SceneData[];
 }
+
+const SceneBackgroundWrapper: React.FC<{
+  scene: SceneData;
+  duration: number;
+  globalArtDirection?: GlobalArtDirection;
+}> = ({ scene, duration, globalArtDirection }) => {
+  const f = useCurrentFrame();
+  const gridYieldStyle = resolveActiveGridYieldStyle(scene, f, duration);
+  return (
+    <Background
+      artDirection={scene.art_direction}
+      globalArtDirection={globalArtDirection}
+      environment={scene.visual_world?.environment}
+      gridYieldStyle={gridYieldStyle}
+    />
+  );
+};
 
 const SceneContainer: React.FC<{
   duration: number;
@@ -77,9 +100,9 @@ const SceneContainer: React.FC<{
   children: React.ReactNode;
 }> = ({ duration, sameContinuityAsPrev, sameContinuityAsNext, children }) => {
   const f = useCurrentFrame();
-  // 若相邻镜头属于同一个连续三维空间组 (continuity_group)，减少淡入淡出黑场跳变，保持叙事连贯
-  const fadeInFrames = sameContinuityAsPrev ? 3 : 8;
-  const fadeOutFrames = sameContinuityAsNext ? 3 : 8;
+  // 若相邻镜头属于同一个连续三维空间组 (continuity_group)，减少淡入淡出跳变并继承相机姿态，保持叙事连贯
+  const fadeInFrames = sameContinuityAsPrev ? 2 : 8;
+  const fadeOutFrames = sameContinuityAsNext ? 2 : 8;
   const fadeIn = interpolate(f, [0, fadeInFrames], [0, 1], { extrapolateRight: "clamp" });
   const fadeOut = interpolate(f, [Math.max(1, duration - fadeOutFrames), duration], [1, 0], {
     extrapolateLeft: "clamp",
@@ -91,6 +114,7 @@ const SceneContainer: React.FC<{
 export const TutorialVideo: React.FC<TutorialVideoProps> = ({
   repoName = "repo-to-video",
   globalArtDirection,
+  debugMode = false,
   scenes = [],
 }) => {
   let acc = 0;
@@ -123,6 +147,7 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = ({
         const d = scene.data || {};
         const audioFrames = scene.audioFrames || Math.max(30, duration - 6);
         const isV4Choreographed =
+          Boolean(scene.renderer_id) ||
           Boolean(scene.visual_choreography && scene.visual_choreography.length > 0) ||
           scene.type === "choreographed_v4";
 
@@ -132,13 +157,18 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = ({
         const sameAsPrev = Boolean(scene.continuity_group && scene.continuity_group === prevGroup);
         const sameAsNext = Boolean(scene.continuity_group && scene.continuity_group === nextGroup);
 
+        const initialCameraPose: CameraPose3D | undefined =
+          sameAsPrev && index > 0
+            ? computeEndingCameraPose(spans[index - 1].scene)
+            : undefined;
+
         return (
           <Sequence key={scene.id || index} from={from} durationInFrames={duration}>
-            {/* 每个镜头根据自身 art_direction 和 globalArtDirection 渲染克制统一的演播室背景 */}
-            <Background
-              artDirection={scene.art_direction}
+            {/* 每个镜头根据自身 art_direction、globalArtDirection 以及 background_grid 让位规则渲染背景 */}
+            <SceneBackgroundWrapper
+              scene={scene}
+              duration={duration}
               globalArtDirection={globalArtDirection}
-              environment={scene.visual_world?.environment}
             />
 
             <SceneContainer
@@ -151,6 +181,8 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = ({
                   scene={{
                     ...scene,
                     durationInFrames: duration,
+                    initialCameraPose,
+                    debugMode: scene.debugMode ?? debugMode,
                   }}
                   globalArtDirection={globalArtDirection}
                 />

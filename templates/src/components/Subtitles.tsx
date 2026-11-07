@@ -70,20 +70,25 @@ export interface WordTiming {
   word: string;
   start_frame?: number;
   end_frame?: number;
+  startFrame?: number;
+  endFrame?: number;
 }
 
 export interface PhraseTiming {
   index: number;
   text: string;
-  start_frame: number;
-  end_frame: number;
+  start_frame?: number;
+  end_frame?: number;
+  startFrame?: number;
+  endFrame?: number;
   start_sec?: number;
   end_sec?: number;
 }
 
 /**
- * v4 编辑级精准字幕组件：
- * - 优先使用 tts_generator.py 生成的 WAV 能量停顿锚点 (phrase_timings)
+ * v4.2 编辑级精准字幕组件：
+ * - 优先使用 tts_generator.py 生成的 WordBoundary + WAV 能量对齐锚点 (phrase_timings)
+ * - 同时兼容 start_frame/end_frame 与 startFrame/endFrame
  * - 适配 dark_cinematic 与 light_editorial 双主题
  * - 零 CSS transition，保证并发渲染帧间 100% 确定性
  */
@@ -105,7 +110,9 @@ export const Subtitles: React.FC<{
   if (phraseTimings && phraseTimings.length > 0) {
     activeClause = phraseTimings[phraseTimings.length - 1].text;
     for (const pt of phraseTimings) {
-      if (f >= pt.start_frame && f < pt.end_frame) {
+      const sFrame = pt.start_frame ?? pt.startFrame ?? 0;
+      const eFrame = pt.end_frame ?? pt.endFrame ?? audioFrames;
+      if (f >= sFrame && f < eFrame) {
         activeClause = pt.text;
         break;
       }

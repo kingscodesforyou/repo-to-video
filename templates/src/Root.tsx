@@ -3,7 +3,7 @@ import { Composition } from "remotion";
 import { TutorialVideo, TutorialVideoProps } from "./compositions/TutorialVideo";
 
 const defaultProps: TutorialVideoProps = {
-  schemaVersion: "4.1",
+  schemaVersion: "4.2",
   title: "Mem0: AI 长期记忆的物理提纯与多层架构拆解",
   repoName: "mem0",
   repoType: "RUNNABLE",
@@ -18,7 +18,7 @@ const defaultProps: TutorialVideoProps = {
   scenes: [
     {
       id: "scene_01",
-      renderer_id: "PhysicalSimulation",
+      renderer_id: "particle_filter_v1",
       chapter: "信息过滤与提纯",
       title: "信息过滤与提纯机制",
       continuity_group: "filter_lab_sequence",
@@ -50,7 +50,10 @@ const defaultProps: TutorialVideoProps = {
           description: "大量信息实体沿空间曲线进入过滤装置",
           camera: "slow_dolly_in",
           shot_scale: "wide",
-          yielding: "废料回收区与提纯晶体保持低对比度退后",
+          yielding: [
+            { target: "waste_container", opacity: 0.28, scale: 0.92, zOffset: -40, blur: 1.5 },
+            { target: "purified_object", opacity: 0.32, scale: 0.94, zOffset: -36, blur: 1.5 },
+          ],
           payload: {
             particle_count: 10,
             valid_ratio: 0.5,
@@ -65,7 +68,10 @@ const defaultProps: TutorialVideoProps = {
           description: "无效信息向下分流，有效信息继续前进",
           camera: "track_horizontal",
           shot_scale: "medium",
-          yielding: "入口粒子流减弱，焦点锁定过滤核心分流阀",
+          yielding: [
+            { target: "information_particles", opacity: 0.35, scale: 0.94, zOffset: -30, blur: 1.0 },
+            { target: "purified_object", opacity: 0.4, scale: 0.95, zOffset: -24, blur: 1.0 },
+          ],
           payload: {
             gravity: 1.2,
           },
@@ -78,7 +84,11 @@ const defaultProps: TutorialVideoProps = {
           description: "有效信息凝聚成一个清晰、完整的三维多面体实体",
           camera: "close_up",
           shot_scale: "close_up",
-          yielding: "过滤装置退入浅景深背景，聚光灯单独照亮提纯实体",
+          yielding: [
+            { target: "3d_filter_machine", opacity: 0.25, scale: 0.9, zOffset: -60, blur: 3.0 },
+            { target: "waste_container", opacity: 0.2, scale: 0.88, zOffset: -60, blur: 3.5 },
+            { target: "background_grid", opacity: 0.15 },
+          ],
           payload: {
             crystal_facets: 20,
           },
@@ -94,7 +104,7 @@ const defaultProps: TutorialVideoProps = {
     },
     {
       id: "scene_02",
-      renderer_id: "MechanicalStructure",
+      renderer_id: "architecture_v1",
       chapter: "多层混合架构",
       title: "三层异构存储空间拆解",
       continuity_group: "hybrid_storage_chamber",
@@ -126,7 +136,9 @@ const defaultProps: TutorialVideoProps = {
           description: "三层精密模组沿 Z 轴平稳分离展示内部光路",
           camera: "isometric_tilt",
           shot_scale: "wide",
-          yielding: "背景网格降低不透明度",
+          yielding: [
+            { target: "background_grid", opacity: 0.18 },
+          ],
           payload: {
             explode_distance: 38,
           },
@@ -139,7 +151,10 @@ const defaultProps: TutorialVideoProps = {
           description: "聚焦扫描底层账本模组，其余层退后虚化让位",
           camera: "track_vertical",
           shot_scale: "medium",
-          yielding: "非焦点层降暗至 30% 并退入景深",
+          yielding: [
+            { target: "graph_topology_slab", opacity: 0.28, scale: 0.93, zOffset: -42, blur: 2.0 },
+            { target: "vector_index_slab", opacity: 0.3, scale: 0.94, zOffset: -36, blur: 1.5 },
+          ],
           payload: {
             focus_layer: 2,
           },
@@ -152,7 +167,9 @@ const defaultProps: TutorialVideoProps = {
           description: "三层存储模组回弹咬合，右侧三维晶体完全成型",
           camera: "close_up",
           shot_scale: "close_up",
-          yielding: "子层退后，聚光灯锁定合体核心",
+          yielding: [
+            { target: "background_grid", opacity: 0.15 },
+          ],
         },
       ],
       text_overlays: [
@@ -164,7 +181,7 @@ const defaultProps: TutorialVideoProps = {
     },
     {
       id: "scene_03",
-      renderer_id: "ProductInterface",
+      renderer_id: "product_interface_v1",
       chapter: "真实代码接入",
       title: "三行真实代码接入记忆引擎",
       narration: "在实际工程中，只需初始化 Memory 实例，并调用 add 与 search 接口即可完成接入。",
@@ -204,7 +221,9 @@ const defaultProps: TutorialVideoProps = {
           description: "呈现项目真实初始化与调用代码",
           camera: "steady_hold",
           shot_scale: "medium",
-          yielding: "终端面板保持待机低对比度",
+          yielding: [
+            { target: "authentic_terminal_bench", opacity: 0.35, scale: 0.95, zOffset: -30, blur: 1.5 },
+          ],
         },
         {
           beat: "聚焦核心调用行",
@@ -214,7 +233,9 @@ const defaultProps: TutorialVideoProps = {
           description: "高亮 add 与 search 核心逻辑行，其余行自动暗化让位",
           camera: "slow_dolly_in",
           shot_scale: "close_up",
-          yielding: "非核心代码行降暗至 28% 不透明度",
+          yielding: [
+            { target: "authentic_terminal_bench", opacity: 0.45, scale: 0.96, zOffset: -20, blur: 1.0 },
+          ],
           payload: { lines: [4, 5] },
         },
       ],
@@ -251,7 +272,7 @@ export const Root: React.FC = () => {
         }}
       />
 
-      {/* 代表性样板镜头审核 (Hero Shot Approval) */}
+      {/* 代表性样板镜头审核 (Hero Shot / First Shot Approval) */}
       <Composition
         id="FirstShotVideo"
         component={TutorialVideo}

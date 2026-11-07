@@ -13,9 +13,11 @@ import {
   resolveArtTheme,
 } from "../theme";
 import {
+  CameraConfig,
   ChoreographyBeat,
   VisualWorldSpec,
   createYieldStyleResolver,
+  getObject3DCoords,
   normalizeObjectId,
   resolveSceneRenderer,
 } from "../registry/RendererRegistry";
@@ -30,8 +32,10 @@ export interface BeatTiming {
   target: string;
   camera?: string;
   shot_scale?: string;
-  start_frame: number;
-  end_frame: number;
+  start_frame?: number;
+  end_frame?: number;
+  startFrame?: number;
+  endFrame?: number;
   mid_frame?: number;
 }
 
@@ -39,6 +43,16 @@ export interface TextOverlayItem {
   text: string;
   role: "annotation" | "metric" | "caption" | "callout" | string;
   beat_index?: number;
+}
+
+export interface CameraPose3D {
+  scale: number;
+  rotX: number;
+  rotY: number;
+  rotZ: number;
+  tx: number;
+  ty: number;
+  tz: number;
 }
 
 export interface SceneV4Props {
@@ -55,10 +69,11 @@ export interface SceneV4Props {
   text_overlays?: TextOverlayItem[];
   beat_timings?: BeatTiming[];
   durationInFrames: number;
+  initialCameraPose?: CameraPose3D;
   debugMode?: boolean;
 }
 
-/** 单调三次 Hermite 样条插值：用于跨节拍连续相机运动 */
+/** 单调三次 Hermite 样条插值：用于跨节拍与跨连续镜头的平滑 3D 相机轨迹 */
 const hermiteSpline = (xs: number[], ys: number[]) => {
   const n = xs.length;
   if (n === 0) return () => 0;
@@ -100,92 +115,222 @@ const hermiteSpline = (xs: number[], ys: number[]) => {
   };
 };
 
-/** 根据 camera 和 shot_scale 推导单个节拍的目标相机姿态 */
-function cameraPoseForBeat(
+/**
+ * 真实 3D 目标追踪相机姿态解算器 (3D Target-Tracking Camera Solver v4.2)：
+ * 结合 camera 预设、shot_scale 景别、以及 beat.target 在 3D 空间中的真实坐标 [objX, objY, objZ]，
+ * 动态解算相机的 scale, rotX, rotY, rotZ (Roll), tx, ty, tz。
+ */
+export function cameraPoseForBeat(
   camera: string = "steady_hold",
   shotScale: string = "medium",
-  beatIndex: number = 0
-) {
+  beatIndex: number = 0,
+  targetId: string = "",
+  cameraConfig?: CameraConfig
+): CameraPose3D {
   let scale = 1.0;
-  if (shotScale === "wide") scale = 0.92;
-  else if (shotScale === "medium") scale = 1.02;
-  else if (shotScale === "close_up") scale = 1.15;
-  else if (shotScale === "macro") scale = 1.24;
+  let focusPullStrength = 0.14;
+  if (shotScale === "wide") {
+    scale = 0.92;
+    focusPullStrength = 0.06;
+  } else if (shotScale === "medium") {
+    scale = 1.02;
+    focusPullStrength = 0.14;
+  } else if (shotScale === "close_up") {
+    scale = 1.15;
+    focusPullStrength = 0.24;
+  } else if (shotScale === "macro") {
+    scale = 1.24;
+    focusPullStrength = 0.32;
+  }
 
-  let rotX = 11;
-  let rotY = -5;
-  let tx = 0;
-  let ty = 0;
+  const speedFactor =
+    cameraConfig?.speed === "slow"
+      ? 0.75
+      : cameraConfig?.speed === "fast"
+      ? 1.25
+      : typeof cameraConfig?.speed === "number"
+      ? cameraConfig.speed
+      : 1.0;
+
+  // 查询焦点目标在 3D 舞台中的空间坐标 [x, y, z]
+  const lookAtTarget = cameraConfig?.lookAt || targetId;
+  const [objX, objY, objZ] = getObject3DCoords(lookAtTarget);
+
+  // 相机向目标实体平滑摇摄对焦 (Target LookAt Offset)
+  let tx = -objX * focusPullStrength * speedFactor;
+  let ty = -objY * focusPullStrength * speedFactor;
+  let tz = objZ * 0.35;
+  let rotX = 10 - (objY / 260) * 3.5;
+  let rotY = -4 + (objX / 420) * 5.5;
+  let rotZ = 0;
 
   switch (camera) {
     case "slow_dolly_in":
       scale *= 1.06;
-      rotX = 13;
-      rotY = -7;
-      tx = 24;
+      rotX = 12 - (objY / 260) * 3;
+      rotY = -6 + (objX / 420) * 5;
+      rotZ = 0;
+      tz += 35 * speedFactor;
       break;
     case "dolly_out":
       scale *= 0.92;
       rotX = 15;
       rotY = -4;
+      rotZ = 0;
+      tz -= 40 * speedFactor;
       break;
     case "close_up":
       scale = Math.max(scale, 1.16);
-      rotX = 8;
-      rotY = -4;
-      tx = -55;
-      ty = -8;
+      rotX = 8 - (objY / 260) * 2.5;
+      rotY = -3 + (objX / 400) * 6;
+      rotZ = 0;
+      tx = -objX * 0.22;
+      ty = -objY * 0.18;
+      tz += 55;
       break;
     case "macro_focus":
       scale = Math.max(scale, 1.24);
       rotX = 6;
-      rotY = -2;
-      tx = -75;
+      rotY = -2 + (objX / 380) * 6.5;
+      rotZ = 0;
+      tx = -objX * 0.28;
+      ty = -objY * 0.22;
+      tz += 80;
       break;
     case "track_horizontal":
       rotX = 10;
-      rotY = beatIndex % 2 === 0 ? 5 : -5;
-      tx = -14;
+      rotY = (beatIndex % 2 === 0 ? 5 : -5) + (objX / 450) * 4;
+      rotZ = 0;
+      tx = -objX * 0.18 + (beatIndex % 2 === 0 ? 18 : -18) * speedFactor;
       break;
     case "track_vertical":
-      rotX = 15;
-      rotY = -6;
-      ty = beatIndex === 0 ? 22 : -22;
+      rotX = 14 - (objY / 220) * 4;
+      rotY = -5;
+      rotZ = 0;
+      ty = -objY * 0.24 + (beatIndex === 0 ? 20 : -20) * speedFactor;
       break;
     case "orbit_left":
       rotX = 14;
-      rotY = -15;
+      rotY = -15 + (objX / 450) * 4;
+      rotZ = -2.2 * speedFactor;
       break;
     case "orbit_right":
       rotX = 14;
-      rotY = 14;
+      rotY = 14 + (objX / 450) * 4;
+      rotZ = 2.2 * speedFactor;
       break;
     case "isometric_tilt":
       rotX = 22;
       rotY = -16;
+      rotZ = -3.5 * speedFactor;
       break;
     case "top_down_overview":
       rotX = 30;
       rotY = 0;
+      rotZ = 0;
       scale *= 0.95;
+      tz -= 25;
       break;
     case "steady_hold":
     default:
       rotX = 9;
-      rotY = -4;
+      rotY = -4 + (objX / 480) * 3;
+      rotZ = 0;
       break;
   }
 
-  return { scale, rotX, rotY, tx, ty };
+  return { scale, rotX, rotY, rotZ, tx, ty, tz };
+}
+
+/**
+ * 统一解析每个 Beat 的起止帧窗口（同时兼容 snake_case start_frame/end_frame 与 camelCase startFrame/endFrame）
+ */
+export function resolveBeatWindows(
+  beats: ChoreographyBeat[],
+  beatTimings: BeatTiming[] | undefined,
+  duration: number
+): Array<{ start: number; end: number }> {
+  return beats.map((b, idx) => {
+    const timed = beatTimings?.[idx];
+    const startVal =
+      timed?.start_frame ?? timed?.startFrame ?? b.start_frame ?? b.startFrame;
+    const endVal =
+      timed?.end_frame ?? timed?.endFrame ?? b.end_frame ?? b.endFrame;
+
+    if (typeof startVal === "number" && typeof endVal === "number" && endVal > startVal) {
+      return { start: startVal, end: endVal };
+    }
+    const step = duration / Math.max(1, beats.length);
+    return {
+      start: Math.floor(idx * step),
+      end: Math.floor((idx + 1) * step),
+    };
+  });
+}
+
+/** 计算镜头结束帧的相机姿态，供同一 continuity_group 的下一镜无缝继承 */
+export function computeEndingCameraPose(scene: {
+  visual_choreography?: ChoreographyBeat[];
+}): CameraPose3D {
+  const beats = scene.visual_choreography || [];
+  if (beats.length === 0) {
+    return cameraPoseForBeat("steady_hold", "medium", 0, "");
+  }
+  const lastIdx = beats.length - 1;
+  const lastBeat = beats[lastIdx];
+  return cameraPoseForBeat(
+    lastBeat.camera,
+    lastBeat.shot_scale,
+    lastIdx,
+    lastBeat.target,
+    lastBeat.camera_config
+  );
+}
+
+/** 计算当前帧針對 background_grid 的让位样式，供 Background.tsx 同步降暗或虚化空间网格 */
+export function resolveActiveGridYieldStyle(
+  scene: {
+    visual_choreography?: ChoreographyBeat[];
+    beat_timings?: BeatTiming[];
+    visual_world?: VisualWorldSpec;
+  },
+  f: number,
+  duration: number
+): React.CSSProperties {
+  const beats = scene.visual_choreography || [];
+  if (beats.length === 0) return { opacity: 1 };
+  const beatWindows = resolveBeatWindows(beats, scene.beat_timings, duration);
+  let activeBeatIdx = 0;
+  for (let i = 0; i < beatWindows.length; i++) {
+    if (f >= beatWindows[i].start && f <= beatWindows[i].end) {
+      activeBeatIdx = i;
+      break;
+    }
+    if (f > beatWindows[i].end) {
+      activeBeatIdx = i;
+    }
+  }
+  const activeBeat = beats[activeBeatIdx];
+  const activeWin = beatWindows[activeBeatIdx] || { start: 0, end: duration };
+  const beatProgress = interpolate(
+    f,
+    [activeWin.start, Math.max(activeWin.start + 1, activeWin.end)],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+  const resolver = createYieldStyleResolver(
+    activeBeat,
+    beatProgress,
+    scene.visual_world?.object_labels
+  );
+  return resolver("background_grid");
 }
 
 /* ==========================================================================
-   主组件：ChoreographedScene (v4.1 可执行视觉编排引擎)
-   - 通过 RendererRegistry 动态匹配并执行注册组件，严禁静默降级
-   - 将 visual_world.environment 映射到真实空间透视与布光参数
-   - 将 beat.yielding 交由 createYieldStyleResolver 驱动非焦点元素的透明度/景深模糊/Z轴后退
-   - 将 beat.payload 直接传入注册组件控制物理参数
-   - 移除画面左下角的 description 说明卡片（description 仅用于导演备注与 QA，仅 debugMode=true 时显示）
+   主组件：ChoreographedScene (v4.2 可执行视觉编排引擎)
+   - 严格通过 scene.renderer_id 路由到 RendererRegistry 中的组件，零启发式降级
+   - 完整实现 3D 相机（含 rotZ Roll 插值、基于 target 3D 坐标的 lookAt 对焦、跨连续镜头姿态继承）
+   - 正式成片彻底移除 description 说明卡片与右上角遥测标签（仅 debugMode=true 时显示）
    ========================================================================== */
 export const ChoreographedScene: React.FC<{
   scene: SceneV4Props;
@@ -219,18 +364,8 @@ export const ChoreographedScene: React.FC<{
   );
   const material = art.material || "translucent_glass";
 
-  // 1. 解析每个动作节拍 (Beat) 的精确起止帧窗口
-  const beatWindows = beats.map((_, idx) => {
-    const timed = scene.beat_timings?.[idx];
-    if (timed && typeof timed.start_frame === "number" && typeof timed.end_frame === "number") {
-      return { start: timed.start_frame, end: timed.end_frame };
-    }
-    const step = duration / Math.max(1, beats.length);
-    return {
-      start: Math.floor(idx * step),
-      end: Math.floor((idx + 1) * step),
-    };
-  });
+  // 1. 解析每个动作节拍 (Beat) 的精确起止帧窗口（兼容 snake_case 与 camelCase）
+  const beatWindows = resolveBeatWindows(beats, scene.beat_timings, duration);
 
   let activeBeatIdx = 0;
   for (let i = 0; i < beatWindows.length; i++) {
@@ -258,9 +393,19 @@ export const ChoreographedScene: React.FC<{
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
-  // 2. 构建跨节拍连续 Hermite 样条相机运镜
+  // 2. 构建跨节拍与跨连续镜头的 Hermite 样条 3D 相机轨迹（含 scale, rotX, rotY, rotZ, tx, ty, tz）
+  const firstBeatPose =
+    scene.initialCameraPose ||
+    cameraPoseForBeat(
+      beats[0]?.camera,
+      beats[0]?.shot_scale,
+      0,
+      beats[0]?.target,
+      beats[0]?.camera_config
+    );
+
   const keyFrames: number[] = [0];
-  const poses = [cameraPoseForBeat(beats[0]?.camera, beats[0]?.shot_scale, 0)];
+  const poses: CameraPose3D[] = [firstBeatPose];
 
   beatWindows.forEach((win, i) => {
     const mid = Math.max(
@@ -268,7 +413,15 @@ export const ChoreographedScene: React.FC<{
       Math.floor((win.start + win.end) / 2)
     );
     keyFrames.push(mid);
-    poses.push(cameraPoseForBeat(beats[i]?.camera, beats[i]?.shot_scale, i));
+    poses.push(
+      cameraPoseForBeat(
+        beats[i]?.camera,
+        beats[i]?.shot_scale,
+        i,
+        beats[i]?.target,
+        beats[i]?.camera_config
+      )
+    );
   });
   if (keyFrames[keyFrames.length - 1] < duration) {
     keyFrames.push(duration);
@@ -278,19 +431,23 @@ export const ChoreographedScene: React.FC<{
   const scaleSpline = hermiteSpline(keyFrames, poses.map((p) => p.scale));
   const rotXSpline = hermiteSpline(keyFrames, poses.map((p) => p.rotX));
   const rotYSpline = hermiteSpline(keyFrames, poses.map((p) => p.rotY));
+  const rotZSpline = hermiteSpline(keyFrames, poses.map((p) => p.rotZ));
   const txSpline = hermiteSpline(keyFrames, poses.map((p) => p.tx));
   const tySpline = hermiteSpline(keyFrames, poses.map((p) => p.ty));
+  const tzSpline = hermiteSpline(keyFrames, poses.map((p) => p.tz));
 
   const camScale = scaleSpline(f);
   const camRotX = rotXSpline(f);
   const camRotY = rotYSpline(f);
+  const camRotZ = rotZSpline(f);
   const camTx = txSpline(f);
   const camTy = tySpline(f);
+  const camTz = tzSpline(f);
 
-  // 3. 通过 Renderer Registry 严格解析对应的动画渲染器（绝不静默降级！）
+  // 3. 严格通过 scene.renderer_id 获取注册渲染组件（零启发式猜测或静默降级！）
   const primaryId = normalizeObjectId(world.primary_object);
   const actionsList = beats.map((b) => b.action);
-  const matchedRenderer = resolveSceneRenderer(scene.renderer_id, primaryId, actionsList);
+  const matchedRenderer = resolveSceneRenderer(scene.renderer_id);
 
   const getYieldStyle = createYieldStyleResolver(activeBeat, beatProgress, world.object_labels);
   const overlays = scene.text_overlays || [];
@@ -359,7 +516,7 @@ export const ChoreographedScene: React.FC<{
           </h2>
         </div>
 
-        {/* 右上角：当前动作节拍 (Beat) 与 Renderer 遥测 */}
+        {/* 右上角：当前动作节拍 (Beat) 指示器（遥测信息仅在 debugMode=true 时显示） */}
         <div
           style={{
             display: "flex",
@@ -389,14 +546,17 @@ export const ChoreographedScene: React.FC<{
               );
             })}
           </div>
-          <div style={{ fontSize: 12, fontFamily: MONO, color: theme.textMuted }}>
-            RENDERER: {matchedRenderer?.id || "UNREGISTERED"} · CAM:{" "}
-            {(activeBeat?.camera || "steady_hold").toUpperCase()}
-          </div>
+          {scene.debugMode && (
+            <div style={{ fontSize: 12, fontFamily: MONO, color: theme.textMuted }}>
+              RENDERER: {matchedRenderer?.id || "UNREGISTERED"} · CAM:{" "}
+              {(activeBeat?.camera || "steady_hold").toUpperCase()} · TARGET:{" "}
+              {activeBeat?.target || "NONE"}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 中央：3D 连续运镜主视口（透视距离由 environment 动态决定） */}
+      {/* 中央：3D 连续运镜主视口（完整包含 translate3d X/Y/Z、scale 与 rotateX/Y/Z） */}
       <div
         style={{
           flex: 1,
@@ -413,9 +573,11 @@ export const ChoreographedScene: React.FC<{
             transformStyle: "preserve-3d",
             transform: `translate3d(${camTx.toFixed(1)}px, ${camTy.toFixed(
               1
-            )}px, 0px) scale(${camScale.toFixed(3)}) rotateX(${camRotX.toFixed(
+            )}px, ${camTz.toFixed(1)}px) scale(${camScale.toFixed(
+              3
+            )}) rotateX(${camRotX.toFixed(2)}deg) rotateY(${camRotY.toFixed(
               2
-            )}deg) rotateY(${camRotY.toFixed(2)}deg)`,
+            )}deg) rotateZ(${camRotZ.toFixed(2)}deg)`,
           }}
         >
           {matchedRenderer ? (
@@ -446,14 +608,15 @@ export const ChoreographedScene: React.FC<{
               }}
             >
               <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>
-                [RENDERER REGISTRY ERROR] 未找到匹配的动画组件
+                [RENDERER REGISTRY ERROR] 未找到声明的 renderer_id 组件
               </div>
               <div style={{ fontSize: 16 }}>
-                Scene: {scene.id} | Primary Object: {primaryId} | Actions:{" "}
-                {actionsList.join(", ")}
+                Scene: {scene.id} | Declared renderer_id: {scene.renderer_id || "MISSING"} |
+                Primary Object: {primaryId} | Actions: {actionsList.join(", ")}
               </div>
               <div style={{ fontSize: 14, marginTop: 8, color: "#FDA4AF" }}>
-                请由 Motion Designer 在 templates/src/registry/RendererRegistry.tsx 中注册支持该物体的组件。
+                请在分镜中显式声明 renderer-registry.json 中已注册的 renderer_id，或由 Motion
+                Designer 在 templates/src/registry/RendererRegistry.tsx 中注册新组件。
               </div>
             </div>
           )}
@@ -512,7 +675,7 @@ export const ChoreographedScene: React.FC<{
           </div>
         )}
 
-        {/* description 默认绝不渲染上屏！仅当显式开启 debugMode 时用于内部调试 */}
+        {/* description 正式成片完全关闭！仅当显式开启 debugMode=true 时显示 */}
         {scene.debugMode && activeBeat?.description && (
           <div
             style={{

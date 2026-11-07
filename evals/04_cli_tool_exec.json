@@ -1,0 +1,109 @@
+{
+  "schema_version": "4.2",
+  "repo_name": "cli-tool-exec-benchmark",
+  "repo_type": "RUNNABLE",
+  "video_title": "Benchmark 04: CLI 工具执行与真实代码视口联动",
+  "hero_scene_id": "eval_cli_01",
+  "chapters": ["CLI 实机运行验证"],
+  "global_art_direction": {
+    "aesthetic": "Premium Editorial Tech Explainer",
+    "default_theme": "dark_cinematic",
+    "lighting_preset": "soft_studio",
+    "camera_philosophy": "continuous_narrative_flow",
+    "max_element_budget": 4
+  },
+  "scenes": [
+    {
+      "id": "eval_cli_01",
+      "renderer_id": "product_interface_v1",
+      "chapter": "CLI 实机运行验证",
+      "title": "真实 CLI 命令执行与核心源码聚焦",
+      "continuity_group": "cli_workspace_benchmark",
+      "narration": "在开发者工作台中，先查看核心构建入口源码，随后在终端执行验证命令，最后高亮关键校验逻辑并输出零错误报告。",
+      "visual_intent": "通过真实代码窗口与终端命令行联动展示 CLI 工具完整执行过程",
+      "art_direction": {
+        "style": "product_demo",
+        "lighting": "soft_studio",
+        "material": "authentic_screen",
+        "accent_color": "#78A9FF",
+        "element_budget": 2
+      },
+      "visual_world": {
+        "environment": "authentic_developer_workspace",
+        "primary_object": "authentic_code_viewport",
+        "secondary_objects": [
+          "authentic_terminal_bench"
+        ],
+        "authentic_assets": {
+          "filename": "scripts/build_video.py",
+          "language": "python",
+          "code_snippet": "from analyze_repo import analyze_repository\nfrom visual_qa import run_visual_qa\n\nstoryboard = validate_storyboard_v4_2(storyboard_path)\nreport = run_visual_qa(props_path, qa_dir, mode=\"full\")\nassert report[\"overall_status\"] == \"APPROVED\"",
+          "highlight_lines": [4, 5, 6],
+          "terminal_commands": [
+            "python scripts/build_video.py --repo . --run-qa",
+            "python scripts/visual_qa.py --props workspace/build_props.json"
+          ],
+          "terminal_output": [
+            "[✓] v4.2 可执行视觉编排与 Renderer Registry 校验通过!",
+            "[✓] Visual QA v4.2 (full) 执行完毕! 综合状态: APPROVED"
+          ],
+          "metrics": [
+            { "value": "100%", "label": "Schema 覆盖率" },
+            { "value": "0", "label": "静默回退次数" }
+          ]
+        }
+      },
+      "visual_choreography": [
+        {
+          "beat": "展开真实源码",
+          "phrase_anchor": "先查看核心构建入口源码",
+          "action": "reveal_ui",
+          "target": "authentic_code_viewport",
+          "description": "展示 build_video.py 真实源码视口，终端保持低对比待机",
+          "camera": "steady_hold",
+          "shot_scale": "wide",
+          "yielding": [
+            { "target": "authentic_terminal_bench", "opacity": 0.32, "scale": 0.95, "zOffset": -30, "blur": 1.5 }
+          ]
+        },
+        {
+          "beat": "终端命令执行",
+          "phrase_anchor": "随后在终端执行验证命令",
+          "action": "type_command",
+          "target": "authentic_terminal_bench",
+          "description": "焦点摇摄至右侧终端，逐字键入验证命令并实时打印通过日志",
+          "camera": "track_horizontal",
+          "shot_scale": "medium",
+          "yielding": [
+            { "target": "authentic_code_viewport", "opacity": 0.38, "scale": 0.95, "zOffset": -28, "blur": 1.2 }
+          ],
+          "payload": {
+            "command_index": 0
+          }
+        },
+        {
+          "beat": "聚焦强门禁断言",
+          "phrase_anchor": "最后高亮关键校验逻辑并输出零错误报告",
+          "action": "highlight_code",
+          "target": "authentic_code_viewport",
+          "description": "镜头推近代码第 4-6 行强门禁断言，其余代码行自动压暗让位",
+          "camera": "close_up",
+          "shot_scale": "close_up",
+          "yielding": [
+            { "target": "authentic_terminal_bench", "opacity": 0.42, "scale": 0.96, "zOffset": -20, "blur": 1.0 }
+          ],
+          "payload": {
+            "lines": [4, 5, 6]
+          }
+        }
+      ],
+      "text_overlays": [
+        {
+          "text": "零静默回退门禁",
+          "role": "annotation",
+          "beat_index": 2
+        }
+      ]
+    }
+  ]
+}

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-tts_generator.py (v4.1) - 双层精准音画同步与严格 phrase_anchor 校验引擎：
+tts_generator.py (v4.2) - 双层精准音画同步、WordBoundary 强制对齐与严格 phrase_anchor 校验引擎：
 1. 第一层（短语级实测对齐）：支持按短语独立合成/切分测量真实音频时长并拼接，获得毫秒级精确的短语时间窗口 (phrase_timings)
-2. 第二层（词级声学强制对齐）：基于 WAV PCM 声学能量包络核（Syllable Energy Nuclei）对短语内部词元执行声学对齐 (word_timings)
-3. 严格时间轴校验门禁：
+2. 第二层（词级强制对齐）：
+   - 在 edge-tts 合成时实时捕获原生 WordBoundary 时间戳（100ns 级偏移与时长）
+   - 在 Index-TTS / WAV 模式下基于 16-bit PCM 声学能量包络核（Syllable Energy Nuclei CDF）执行声学强制对齐 (word_timings)
+3. 统一时间字段规范：在 phrase_timings、word_timings、beat_timings 中同时输出 start_frame/end_frame 与 startFrame/endFrame
+4. 严格时间轴校验门禁：
    - 每个 visual_choreography 节拍必须提供匹配口播原文的 phrase_anchor
    - 严禁两个动作重复锚定同一文本位置
    - 动作锚点在口播中的出现顺序必须严格单调递增
@@ -20,7 +23,7 @@ import shutil
 import subprocess
 import argparse
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 try:
     import requests
@@ -117,7 +120,7 @@ def validate_and_locate_phrase_anchors(
     choreography: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """
-    v4.1 严格时间轴锚点校验门禁（彻底废除未匹配静默比例回退！）：
+    v4.2 严格时间轴锚点校验门禁（彻底废除未匹配静默比例回退！）：
     1. 每个 beat 必须包含非空 phrase_anchor
     2. 每个 phrase_anchor 必须在口播原文 narration 中真实存在
     3. 不允许两个动作重复匹配口播中的同一位置
@@ -140,7 +143,7 @@ def validate_and_locate_phrase_anchors(
         if not anchor:
             raise ValueError(
                 f"[{scene_id}] 动作节拍 #{b_idx + 1} ('{beat_name}') 缺少 'phrase_anchor'！"
-                f"v4.1 严禁静默采用镜头比例回退，每个动作必须显式绑定口播短语锚点。"
+                f"v4.2 严禁静默采用镜头比例回退，每个动作必须显式绑定口播短语锚点。"
             )
 
         norm_anchor = normalize_for_match(anchor)
@@ -149,7 +152,6 @@ def validate_and_locate_phrase_anchors(
                 f"[{scene_id}] 动作节拍 #{b_idx + 1} ('{beat_name}') 的 phrase_anchor ('{anchor}') 无有效文字。"
             )
 
-        # 从上一个锚点之后寻找匹配，若找不到再检查是否因为顺序颠倒或重复匹配
         search_from = max(0, last_start_pos + 1)
         pos = norm_narration.find(norm_anchor, search_from)
         if pos == -1:
@@ -254,13 +256,37 @@ def forced_align_words_in_window(
     phrase_index: int,
     start_sec: float,
     end_sec: float,
-    fps: int = 30
+    fps: int = 30,
+    native_word_boundaries: Optional[List[Dict[str, Any]]] = None
 ) -> List[Dict[str, Any]]:
     """
-    第二层：词级声学强制对齐 (Acoustic Syllable Energy Forced Alignment)
-    在短语音频区间 [start_sec, end_sec] 内提取 10ms 声学包络积分（Cumulative Acoustic Energy CDF），
-    按实际发声能量分布加上词元发音权重映射每个词的起止帧，避免把静音段均摊给词元。
+    第二层：词级强制对齐 (WordBoundary + Acoustic Syllable Energy Forced Alignment)
+    1. 若合成阶段捕获了 TTS 原生 WordBoundary 时间戳，优先直接使用实测词边界；
+    2. 否则在短语音频区间 [start_sec, end_sec] 内提取 10ms 声学包络积分（Cumulative Acoustic Energy CDF），
+       按实际发声能量分布映射每个词的起止帧。
+    同时输出 start_frame/end_frame 与 startFrame/endFrame。
     """
+    if native_word_boundaries and len(native_word_boundaries) > 0:
+        out_words = []
+        for wb in native_word_boundaries:
+            w_start = max(start_sec, float(wb.get("start_sec", start_sec)))
+            w_end = max(w_start + 0.02, min(end_sec, float(wb.get("end_sec", w_start + 0.08))))
+            sf = int(round(w_start * fps))
+            ef = max(sf + 1, int(round(w_end * fps)))
+            out_words.append({
+                "word": wb.get("word", ""),
+                "phrase_index": phrase_index,
+                "start_sec": round(w_start, 3),
+                "end_sec": round(w_end, 3),
+                "start_frame": sf,
+                "end_frame": ef,
+                "startFrame": sf,
+                "endFrame": ef,
+                "alignment_source": "tts_word_boundary",
+            })
+        if out_words:
+            return out_words
+
     if not tokens:
         return []
 
@@ -268,7 +294,6 @@ def forced_align_words_in_window(
     t_weights = [1.6 if re.match(r"^[A-Za-z0-9_.-]+$", tk) else 1.0 for tk in tokens]
     tw_sum = sum(t_weights) or 1.0
 
-    # 提取该时间窗口内的声学能量累积分布曲线 (Energy CDF)
     energy_cdf: List[float] = []
     try:
         channels, rate, bits, pcm = parse_wav_pcm(wav_path)
@@ -287,7 +312,6 @@ def forced_align_words_in_window(
                     abs(int.from_bytes(chunk[j : j + 2], "little", signed=True))
                     for j in range(0, len(chunk) - 1, stride)
                 )
-                # 加上基础底噪权重防止纯静音段除零
                 raw_e.append(amp + 120.0)
             total_e = sum(raw_e)
             if total_e > 0 and len(raw_e) >= 4:
@@ -302,7 +326,6 @@ def forced_align_words_in_window(
     def map_ratio_by_energy(target_r: float) -> float:
         if not energy_cdf:
             return target_r
-        # 在累积声学能量曲线上反查对应的时间比例，并做 50% 声学 + 50% 发音先验平滑
         n = len(energy_cdf) - 1
         for i in range(n):
             if energy_cdf[i] <= target_r <= energy_cdf[i + 1]:
@@ -320,13 +343,18 @@ def forced_align_words_in_window(
         r1 = map_ratio_by_energy(t_acc / tw_sum)
         w_start = start_sec + r0 * span_sec
         w_end = max(w_start + 0.02, start_sec + r1 * span_sec)
+        sf = int(round(w_start * fps))
+        ef = max(sf + 1, int(round(w_end * fps)))
         word_timings.append({
             "word": tk,
             "phrase_index": phrase_index,
             "start_sec": round(w_start, 3),
             "end_sec": round(w_end, 3),
-            "start_frame": int(round(w_start * fps)),
-            "end_frame": int(round(w_end * fps)),
+            "start_frame": sf,
+            "end_frame": ef,
+            "startFrame": sf,
+            "endFrame": ef,
+            "alignment_source": "acoustic_energy_cdf",
         })
 
     return word_timings
@@ -338,13 +366,14 @@ def compute_phrase_and_beat_timings(
     duration_sec: float,
     total_scene_frames: int,
     fps: int = 30,
-    measured_phrase_durations: List[float] = None
+    measured_phrase_durations: Optional[List[float]] = None,
+    measured_phrase_word_boundaries: Optional[List[List[Dict[str, Any]]]] = None
 ) -> Dict[str, Any]:
     """
-    计算双层对齐时间锚点：
-    - 第一层：短语级时间窗口 (phrase_timings，优先使用短语独立音频实测时长 measured_phrase_durations)
-    - 第二层：词级声学强制对齐 (word_timings)
-    - 严格校验并绑定 visual_choreography 的每个 beat_timings（禁止未匹配静默回退）
+    计算双层对齐时间锚点（同时输出 snake_case 与 camelCase 时间字段）：
+    - 第一层：短语级时间窗口 (phrase_timings)
+    - 第二层：词级强制对齐 (word_timings，优先使用 WordBoundary，回退使用声学能量包络)
+    - 严格校验并绑定 visual_choreography 的每个 beat_timings
     """
     scene_id = scene.get("id", "unknown_scene")
     narration = (scene.get("narration") or "").strip()
@@ -361,7 +390,6 @@ def compute_phrase_and_beat_timings(
     if not phrases:
         phrases = [narration]
 
-    # 第一层：确定每个短语的起止时间
     if measured_phrase_durations and len(measured_phrase_durations) == len(phrases):
         starts = []
         ends = []
@@ -411,21 +439,28 @@ def compute_phrase_and_beat_timings(
             "end_sec": round(e_sec, 3),
             "start_frame": s_frame,
             "end_frame": e_frame,
+            "startFrame": s_frame,
+            "endFrame": e_frame,
         })
 
         tokens = re.findall(r"[A-Za-z0-9_.-]+|[\u4e00-\u9fff]", clean_text)
+        seg_wbs = (
+            measured_phrase_word_boundaries[i]
+            if measured_phrase_word_boundaries and i < len(measured_phrase_word_boundaries)
+            else None
+        )
         word_timings.extend(
-            forced_align_words_in_window(wav_path, tokens, i, s_sec, e_sec, fps)
+            forced_align_words_in_window(
+                wav_path, tokens, i, s_sec, e_sec, fps, native_word_boundaries=seg_wbs
+            )
         )
 
-    # 严格校验并定位 visual_choreography 的每个 phrase_anchor
     choreography = scene.get("visual_choreography") or []
     located_anchors = validate_and_locate_phrase_anchors(scene_id, narration, choreography)
     beat_timings = []
     timing_warnings = []
     n_beats = len(choreography)
 
-    # 将字符偏移映射到精确的短语/词级时间点
     def char_offset_to_frame(norm_offset: int) -> int:
         for p in phrase_timings:
             if p["norm_start"] <= norm_offset <= p["norm_end"]:
@@ -447,7 +482,6 @@ def compute_phrase_and_beat_timings(
         else:
             b_end_frame = raw_trigger_frames[b_idx + 1]
 
-        # 检查关键动作是否发生异常挤压、提前或延迟
         beat_dur_sec = (b_end_frame - b_start_frame) / float(fps)
         audit_status = "OK"
         if beat_dur_sec < 0.6:
@@ -471,13 +505,14 @@ def compute_phrase_and_beat_timings(
             "anchor_char_offset": loc["norm_start"],
             "start_frame": b_start_frame,
             "end_frame": b_end_frame,
+            "startFrame": b_start_frame,
+            "endFrame": b_end_frame,
             "mid_frame": (b_start_frame + b_end_frame) // 2,
             "start_sec": b_start_sec,
             "end_sec": b_end_sec,
             "timing_audit": audit_status,
         })
 
-    # 清理内部辅助字段
     for p in phrase_timings:
         p.pop("norm_start", None)
         p.pop("norm_end", None)
@@ -488,34 +523,6 @@ def compute_phrase_and_beat_timings(
         "beat_timings": beat_timings,
         "timing_warnings": timing_warnings,
     }
-
-
-def apply_audio_speed(raw_wav: Path, target_wav: Path, speed: float = 0.9):
-    """使用 ffmpeg atempo 滤镜在不改变音调的前提下调节语速"""
-    if abs(speed - 1.0) < 1e-3:
-        if raw_wav != target_wav:
-            shutil.copy2(raw_wav, target_wav)
-        return
-    try:
-        import imageio_ffmpeg
-        ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        ffmpeg = "ffmpeg"
-
-    tmp_out = target_wav.with_suffix(".speed.wav")
-    subprocess.run(
-        [
-            ffmpeg, "-y",
-            "-i", str(raw_wav),
-            "-af", f"atempo={speed}",
-            "-c:a", "pcm_s16le",
-            str(tmp_out),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=True,
-    )
-    shutil.move(str(tmp_out), str(target_wav))
 
 
 def create_placeholder_wav(wav_path: str, duration_sec: float, sample_rate: int = 24000):
@@ -533,11 +540,11 @@ def synthesize_phrase_segments_and_concat(
     speed: float,
     tts_online: bool,
     allow_fallback: bool
-) -> Tuple[float, List[float], bool, str]:
+) -> Tuple[float, List[float], List[List[Dict[str, Any]]], bool, str]:
     """
-    第一层短语级对齐：
+    第一层短语级对齐 + 第二层 WordBoundary 实时捕获：
     对每个短语分别生成音频片段，测量每个短语片段的实际时长后再拼接为完整场景 WAV，
-    从而使每个短语与动作节拍的时间窗口达到 100% 实测精度。
+    同时若使用 edge-tts 则捕获每个词元的原生 WordBoundary 时间戳。
     """
     sample_rate = 24000
     pause_sec = 0.10
@@ -545,6 +552,7 @@ def synthesize_phrase_segments_and_concat(
 
     phrase_pcms: List[bytes] = []
     phrase_durations: List[float] = []
+    phrase_word_boundaries: List[List[Dict[str, Any]]] = []
     used_voice_tag = voice
     is_fallback = False
 
@@ -552,16 +560,17 @@ def synthesize_phrase_segments_and_concat(
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     try:
+        acc_time_sec = 0.0
         for idx, p_text in enumerate(phrases):
             seg_raw = tmp_dir / f"seg_{idx}.raw.wav"
             seg_final = tmp_dir / f"seg_{idx}.wav"
             seg_ok = False
+            seg_wbs: List[Dict[str, Any]] = []
 
             if tts_online:
                 try:
                     audio_bytes = call_index_tts(p_text, tts_url, voice=voice, emo_alpha=emo_alpha)
                     seg_raw.write_bytes(audio_bytes)
-                    # 统一重采样为 24kHz 单声道 16-bit PCM 并应用语速
                     try:
                         import imageio_ffmpeg
                         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
@@ -591,7 +600,24 @@ def synthesize_phrase_segments_and_concat(
                     async def _synth_seg():
                         temp_mp3 = str(seg_raw) + ".mp3"
                         comm = edge_tts.Communicate(p_text, "zh-CN-YunyangNeural", rate="-5%")
-                        await comm.save(temp_mp3)
+                        mp3_bytes = bytearray()
+                        local_wbs = []
+                        async for chunk in comm.stream():
+                            c_type = chunk.get("type")
+                            if c_type == "audio":
+                                mp3_bytes.extend(chunk.get("data", b""))
+                            elif c_type == "WordBoundary":
+                                # edge-tts offset & duration 单位为 100ns (1e-7 s)
+                                raw_off = float(chunk.get("offset", 0)) / 10_000_000.0
+                                raw_dur = float(chunk.get("duration", 0)) / 10_000_000.0
+                                adj_off = acc_time_sec + (raw_off / max(0.2, speed))
+                                adj_dur = max(0.03, raw_dur / max(0.2, speed))
+                                local_wbs.append({
+                                    "word": chunk.get("text", ""),
+                                    "start_sec": round(adj_off, 3),
+                                    "end_sec": round(adj_off + adj_dur, 3),
+                                })
+                        Path(temp_mp3).write_bytes(bytes(mp3_bytes))
                         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
                         af_arg = f"atempo={speed}" if abs(speed - 1.0) >= 1e-3 else "anull"
                         subprocess.run(
@@ -604,12 +630,12 @@ def synthesize_phrase_segments_and_concat(
                         )
                         if os.path.exists(temp_mp3):
                             os.remove(temp_mp3)
+                        return local_wbs
 
-                    asyncio.run(_synth_seg())
+                    seg_wbs = asyncio.run(_synth_seg())
                     used_voice_tag = "edge-tts:zh-CN-YunyangNeural"
                     seg_ok = True
                 except Exception:
-                    # 离线降级：按该短语的实际发音权重生成对应时长的 PCM
                     est_dur = max(0.8, round(spoken_weight(p_text) / (3.8 * speed), 2))
                     create_placeholder_wav(str(seg_final), est_dur, sample_rate=sample_rate)
                     is_fallback = True
@@ -623,11 +649,13 @@ def synthesize_phrase_segments_and_concat(
 
             phrase_pcms.append(pcm)
             phrase_durations.append(round(seg_dur, 3))
+            phrase_word_boundaries.append(seg_wbs)
+            acc_time_sec += seg_dur
 
         combined_pcm = b"".join(phrase_pcms)
         write_pcm_wav(str(out_wav_path), combined_pcm, sample_rate=sample_rate, channels=1)
         total_dur = len(combined_pcm) / float(sample_rate * 2)
-        return total_dur, phrase_durations, is_fallback, used_voice_tag
+        return total_dur, phrase_durations, phrase_word_boundaries, is_fallback, used_voice_tag
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -699,7 +727,7 @@ def process_storyboard(
     subtitles = []
     current_time_offset = 0.0
 
-    print(f"[*] Processing {len(scenes)} scenes with v4.1 Phrase-Level Alignment (speed={speed}x)...", flush=True)
+    print(f"[*] Processing {len(scenes)} scenes with v4.2 Phrase & WordBoundary Forced Alignment (speed={speed}x)...", flush=True)
 
     tts_online = True
     for index, scene in enumerate(scenes):
@@ -712,7 +740,6 @@ def process_storyboard(
         print(f"\n[{index + 1}/{len(scenes)}] Scene: {scene_id}", flush=True)
         print(f"   Narration: {narration[:48]}..." if len(narration) > 48 else f"   Narration: {narration}", flush=True)
 
-        # 合成前先严格校验本镜头的 phrase_anchor 是否合法，有问题立即阻断
         validate_and_locate_phrase_anchors(
             scene_id, narration, scene.get("visual_choreography") or []
         )
@@ -728,6 +755,7 @@ def process_storyboard(
             phrases = split_into_phrases(narration)
 
         measured_phrase_durations = None
+        measured_phrase_wbs = None
         cached = False
         if wav_path.exists() and meta_path.exists():
             try:
@@ -739,23 +767,28 @@ def process_storyboard(
                 ):
                     duration = get_wav_duration_seconds(str(wav_path))
                     measured_phrase_durations = meta.get("phrase_durations")
+                    measured_phrase_wbs = meta.get("phrase_word_boundaries")
                     print(f"   [=] 命中短语级音频缓存! 音频时长: {duration:.2f}s", flush=True)
                     cached = True
             except Exception:
                 cached = False
 
         if not cached:
-            duration, measured_phrase_durations, is_fallback, used_voice = (
-                synthesize_phrase_segments_and_concat(
-                    phrases=phrases,
-                    out_wav_path=wav_path,
-                    tts_url=tts_url,
-                    voice=voice,
-                    emo_alpha=emo_alpha,
-                    speed=speed,
-                    tts_online=tts_online,
-                    allow_fallback=allow_fallback,
-                )
+            (
+                duration,
+                measured_phrase_durations,
+                measured_phrase_wbs,
+                is_fallback,
+                used_voice,
+            ) = synthesize_phrase_segments_and_concat(
+                phrases=phrases,
+                out_wav_path=wav_path,
+                tts_url=tts_url,
+                voice=voice,
+                emo_alpha=emo_alpha,
+                speed=speed,
+                tts_online=tts_online,
+                allow_fallback=allow_fallback,
             )
             if is_fallback:
                 tts_online = False
@@ -767,6 +800,7 @@ def process_storyboard(
                         "speed": speed,
                         "fallback": is_fallback,
                         "phrase_durations": measured_phrase_durations,
+                        "phrase_word_boundaries": measured_phrase_wbs,
                     },
                     ensure_ascii=False,
                 ),
@@ -786,6 +820,7 @@ def process_storyboard(
             total_scene_frames=frames_count,
             fps=fps,
             measured_phrase_durations=measured_phrase_durations,
+            measured_phrase_word_boundaries=measured_phrase_wbs,
         )
         phrase_timings = timing_anchors["phrase_timings"]
         beat_timings = timing_anchors["beat_timings"]
@@ -817,6 +852,8 @@ def process_storyboard(
             "frame_count": frames_count,
             "start_frame": total_video_frames,
             "end_frame": total_video_frames + frames_count,
+            "startFrame": total_video_frames,
+            "endFrame": total_video_frames + frames_count,
             "phrase_timings": phrase_timings,
             "word_timings": timing_anchors["word_timings"],
             "beat_timings": beat_timings,
@@ -861,7 +898,7 @@ def process_storyboard(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate voiceovers, phrase anchors & subtitles via Index-TTS")
+    parser = argparse.ArgumentParser(description="Generate voiceovers, phrase anchors & subtitles via Index-TTS / edge-tts")
     parser.add_argument("--input", required=True, help="Path to storyboard.json")
     parser.add_argument("--output-dir", required=True, help="Directory to save wav and subtitles")
     parser.add_argument("--tts-url", default="http://192.168.8.106:8712/tts", help="Index-TTS service URL")

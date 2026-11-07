@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-visual_qa.py (v4.1) - 四层可执行视觉审核系统 (Schema QA + Render QA + Motion QA + Semantic QA)
-1. Schema QA: 校验 Renderer Registry 绑定、动作支持度、元素预算 (<= 4) 与 phrase_anchor
+visual_qa.py (v4.2) - 四层可执行视觉审核系统与强交付门禁 (Schema QA + Render QA + Motion QA + Hash-Bound Semantic QA)
+1. Schema QA: 校验唯一数据源 renderer-registry.json 绑定、动作支持度、元素预算 (<= 4)、结构化让位规则与真实代码资产
 2. Render QA: 严格检查每一帧静帧与样板视频渲染返回状态及 PNG 文件完整性，任何缺帧直接判为失败
 3. Motion QA: 抽样每一个动作节拍 (Beat) 的起/中/止关键帧 + 所有节拍交界处的连续帧，检测动作冻结与跳变
-4. Semantic QA: 生成供 Visual QA Agent 审阅真实画面的五项必答语义审核表，未通过五项审美核验禁止交付
+4. Semantic QA: 生成绑定 scene_signature_hash（分镜内容 + 渲染器版本 + 关键帧图像指纹）的五项必答审美核验表；
+   一旦分镜或画面发生任何改动，旧审核记录自动失效；overall_status != 'APPROVED' 时命令以非零状态码退出 (SystemExit(1))。
 """
 
 import os
 import sys
 import json
 import math
+import shutil
+import hashlib
 import argparse
 import subprocess
 from pathlib import Path
@@ -70,6 +73,36 @@ def verify_png_file(png_path: Path) -> bool:
         return False
 
 
+def compute_scene_signature_hash(
+    scene: Dict[str, Any],
+    registry_version: str,
+    sampled_pngs: List[Path]
+) -> str:
+    """
+    计算镜头内容 + 渲染器版本 + 渲染关键帧字节指纹的 SHA-256 签名 (scene_signature_hash)。
+    任何文案、动作编排、让位参数或渲染画面的修改都会改变此哈希，自动使旧的 Semantic QA 审批失效。
+    """
+    canonical_payload = {
+        "registry_version": registry_version,
+        "id": scene.get("id"),
+        "renderer_id": scene.get("renderer_id"),
+        "narration": scene.get("narration"),
+        "visual_intent": scene.get("visual_intent"),
+        "art_direction": scene.get("art_direction"),
+        "visual_world": scene.get("visual_world"),
+        "visual_choreography": scene.get("visual_choreography"),
+        "text_overlays": scene.get("text_overlays"),
+    }
+    hasher = hashlib.sha256()
+    hasher.update(
+        json.dumps(canonical_payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    )
+    for p in sampled_pngs:
+        if verify_png_file(p):
+            hasher.update(hashlib.sha256(p.read_bytes()).digest())
+    return hasher.hexdigest()[:24]
+
+
 def render_still_frame(
     remotion_dir: Path,
     composition_id: str,
@@ -110,7 +143,7 @@ def build_contact_sheet_image(
     items: List[Dict[str, Any]],
     out_sheet_path: Path,
     columns: int = 3,
-    title: str = "repo-to-video v4.1 Visual QA Contact Sheet"
+    title: str = "repo-to-video v4.2 Visual QA Contact Sheet"
 ) -> bool:
     """将抽样关键帧拼接为带场景 ID、节拍名称、动作与帧号标注的 Contact Sheet 审片大图"""
     valid_items = [it for it in items if verify_png_file(Path(it["image_path"]))]
@@ -185,7 +218,9 @@ def build_contact_sheet_image(
 
 
 def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict[str, Any]:
-    """第 1 层：Schema QA（校验注册组件、动作支持度、元素预算 <= 4 与让位规则）"""
+    """第 1 层：Schema QA（校验注册组件、动作支持度、元素预算 <= 4、真实代码资产与让位规则）"""
+    from build_video import build_renderers_lookup
+
     issues = []
     sid = scene.get("id", "unknown")
     art = scene.get("art_direction") or {}
@@ -193,16 +228,25 @@ def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict
     choreo = scene.get("visual_choreography") or []
     overlays = scene.get("text_overlays") or []
 
-    renderers_map = {r["id"]: r for r in manifest.get("renderers", [])}
-    rid = scene.get("renderer_id")
+    renderers_map = build_renderers_lookup(manifest)
+    rid = (scene.get("renderer_id") or "").strip()
     if not rid or rid not in renderers_map:
-        issues.append(f"[{sid}] Schema QA: renderer_id='{rid}' 未在 Renderer Registry 中注册。")
+        issues.append(f"[{sid}] Schema QA: renderer_id='{rid}' 未在 renderer-registry.json 中注册。")
     else:
         r_spec = renderers_map[rid]
         for b in choreo:
             act = b.get("action")
             if act not in r_spec["supportedActions"]:
-                issues.append(f"[{sid}] Schema QA: 动作 '{act}' 不被组件 '{rid}' 支持。")
+                issues.append(f"[{sid}] Schema QA: 动作 '{act}' 不被组件 '{r_spec['id']}' 支持。")
+        if r_spec["id"] == "product_interface_v1":
+            auth = world.get("authentic_assets")
+            if not isinstance(auth, dict) or (
+                not (auth.get("code_snippet") or "").strip()
+                and not (auth.get("terminal_commands") or [])
+            ):
+                issues.append(
+                    f"[{sid}] Schema QA: product_interface_v1 缺少真实的 visual_world.authentic_assets，禁止回退到伪造示例。"
+                )
 
     sec_objs = world.get("secondary_objects") or []
     if len(sec_objs) > 3:
@@ -231,13 +275,14 @@ def run_schema_qa_layer(scene: Dict[str, Any], manifest: Dict[str, Any]) -> Dict
 
 def generate_semantic_qa_artifacts(
     scenes: List[Dict[str, Any]],
+    scene_signatures: Dict[str, str],
     output_dir: Path,
     contact_sheet_path: Path
 ) -> Dict[str, Any]:
     """
-    第 4 层：Semantic QA（语义与审美独立审片清单生成与核验）
-    生成 out/qa/semantic_qa_checklist.json 与 out/qa/semantic_qa_review.md，
-    强制要求 Visual QA Agent 对照实际渲染出的 Contact Sheet 与连续帧逐项回答 5 个核心问题。
+    第 4 层：Hash-Bound Semantic QA（绑定签名哈希的语义与审美独立审片清单生成与核验）
+    只有当 scene_id 存在且 scene_signature_hash 完全一致时，才复用已通过的 agent_verified 结论；
+    一旦分镜内容或渲染帧发生任何变化，立即使旧审批失效并强制要求重新审片！
     """
     checklist_path = output_dir / "semantic_qa_checklist.json"
     review_md_path = output_dir / "semantic_qa_review.md"
@@ -257,17 +302,20 @@ def generate_semantic_qa_artifacts(
     failed_semantic_issues = []
 
     md_lines = [
-        "# Visual QA 第 4 层：Semantic QA 真实画面审美审片单 (v4.1)",
+        "# Visual QA 第 4 层：Semantic QA 真实画面审美审片单 (v4.2)",
         "",
         f"- **全片 Contact Sheet 路径**: `{contact_sheet_path}`",
+        "- **哈希绑定机制**: 每个镜头的审批结论均与 `scene_signature_hash`（分镜 JSON + 渲染器版本 + 关键帧图像 SHA-256）强绑定；修改分镜后旧审批自动失效。",
         "- **审核要求**: Visual QA Agent 必须使用 `read_file` 直接查看上述 Contact Sheet 图片及各镜头的 `continuous_<scene_id>.png` 连续帧图片，逐镜回答以下 5 个问题，并将 `semantic_qa_checklist.json` 中的 `agent_verified` 设为 `true`。",
         "",
     ]
 
     for s in scenes:
         sid = s.get("id", "unknown")
+        sig_hash = scene_signatures.get(sid, "")
         prev = existing_verdicts.get(sid)
-        if prev:
+
+        if prev and prev.get("scene_signature_hash") == sig_hash:
             semantic_scenes.append(prev)
             for q in MANDATORY_SEMANTIC_QUESTIONS:
                 ans = prev.get("answers", {}).get(q["id"], {})
@@ -283,6 +331,7 @@ def generate_semantic_qa_artifacts(
             ]
             entry = {
                 "scene_id": sid,
+                "scene_signature_hash": sig_hash,
                 "renderer_id": s.get("renderer_id", ""),
                 "narration": s.get("narration", ""),
                 "visual_intent": s.get("visual_intent", ""),
@@ -300,7 +349,7 @@ def generate_semantic_qa_artifacts(
             }
             semantic_scenes.append(entry)
 
-        md_lines.append(f"## 镜头 `{sid}` ({s.get('title', '')})")
+        md_lines.append(f"## 镜头 `{sid}` ({s.get('title', '')}) — Hash: `{sig_hash}`")
         md_lines.append(f"- **渲染组件 (`renderer_id`)**: `{s.get('renderer_id')}`")
         md_lines.append(f"- **口播文案**: {s.get('narration')}")
         md_lines.append(f"- **视觉意图**: {s.get('visual_intent')}")
@@ -311,7 +360,7 @@ def generate_semantic_qa_artifacts(
         md_lines.append("")
 
     checklist_payload = {
-        "version": "4.1",
+        "version": "4.2",
         "contact_sheet": str(contact_sheet_path),
         "all_verified": unverified_count == 0 and len(failed_semantic_issues) == 0,
         "unverified_scenes_count": unverified_count,
@@ -346,11 +395,11 @@ def run_visual_qa(
     render_frames: bool = True
 ) -> Dict[str, Any]:
     """
-    执行 v4.1 四层视觉 QA：
+    执行 v4.2 四层视觉 QA：
     - Layer 1: Schema QA
     - Layer 2: Render QA (严格验证每一次静帧渲染返回码与 PNG 签名，任何失败直接阻断)
     - Layer 3: Motion QA (采样每个动作节拍的起/中/止帧 + 每个节拍交界处的连续帧)
-    - Layer 4: Semantic QA (生成五问审片单，核验真实画面是否准确表达口播文案)
+    - Layer 4: Hash-Bound Semantic QA (生成绑定签名哈希的五问审片单，核验真实画面是否准确表达口播文案)
     """
     from build_video import load_registry_manifest
 
@@ -361,6 +410,7 @@ def run_visual_qa(
     frames_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = load_registry_manifest()
+    registry_version = str(manifest.get("version", "4.2.0"))
     props = json.loads(props_path.read_text(encoding="utf-8"))
     scenes = props.get("scenes", [])
     if not scenes:
@@ -387,6 +437,7 @@ def run_visual_qa(
 
     contact_items: List[Dict[str, Any]] = []
     scene_reports: List[Dict[str, Any]] = []
+    scene_signatures: Dict[str, str] = {}
     all_issues: List[str] = []
 
     acc_frame = 0
@@ -407,9 +458,11 @@ def run_visual_qa(
             for b in beat_timings:
                 b_idx = b.get("beat_index", 0)
                 b_name = b.get("beat", f"B{b_idx + 1}")
-                b_start = start_f + max(2, int(b.get("start_frame", 0)) + 3)
-                b_mid = start_f + int(b.get("mid_frame", dur // 2))
-                b_end = start_f + min(dur - 3, max(4, int(b.get("end_frame", dur)) - 3))
+                b_s = b.get("start_frame") if b.get("start_frame") is not None else b.get("startFrame", 0)
+                b_e = b.get("end_frame") if b.get("end_frame") is not None else b.get("endFrame", dur)
+                b_start = start_f + max(2, int(b_s) + 3)
+                b_mid = start_f + int(b.get("mid_frame", (int(b_s) + int(b_e)) // 2))
+                b_end = start_f + min(dur - 3, max(4, int(b_e) - 3))
                 sample_points.append((f"B{b_idx+1}_{b_name}_Start", b_start, b_idx))
                 sample_points.append((f"B{b_idx+1}_{b_name}_Mid", b_mid, b_idx))
                 sample_points.append((f"B{b_idx+1}_{b_name}_End", b_end, b_idx))
@@ -421,6 +474,7 @@ def run_visual_qa(
             ]
 
         beat_frames_map: Dict[int, List[Path]] = {}
+        scene_sampled_pngs: List[Path] = []
         for tag, abs_frame, b_idx in sample_points:
             safe_tag = tag.replace(":", "_").replace(" ", "_")
             png_path = frames_dir / f"{sid}_{safe_tag}_f{abs_frame}.png"
@@ -432,6 +486,7 @@ def run_visual_qa(
                     render_failures.append(err_msg)
                     scene_issues.append(err_msg)
             beat_frames_map.setdefault(b_idx, []).append(png_path)
+            scene_sampled_pngs.append(png_path)
             contact_items.append({
                 "scene_id": sid,
                 "tag": tag,
@@ -443,7 +498,12 @@ def run_visual_qa(
         continuous_items: List[Dict[str, Any]] = []
         if len(beat_timings) >= 2 and render_frames:
             for b_i in range(len(beat_timings) - 1):
-                boundary_frame = start_f + int(beat_timings[b_i].get("end_frame", dur // 2))
+                b_e = (
+                    beat_timings[b_i].get("end_frame")
+                    if beat_timings[b_i].get("end_frame") is not None
+                    else beat_timings[b_i].get("endFrame", dur // 2)
+                )
+                boundary_frame = start_f + int(b_e)
                 for delta in (-3, 0, 3):
                     cf = max(start_f + 2, min(end_f - 2, boundary_frame + delta))
                     c_png = frames_dir / f"{sid}_b{b_i+1}_to_b{b_i+2}_f{cf}.png"
@@ -479,9 +539,13 @@ def run_visual_qa(
                             f"[{sid}] Motion QA 失败: Beat #{b_idx + 1} 画面静止 (Frozen Beat: 首尾帧差异仅 {d_score}%)！"
                         )
 
+        sig_hash = compute_scene_signature_hash(scene, registry_version, scene_sampled_pngs)
+        scene_signatures[sid] = sig_hash
+
         all_issues.extend(scene_issues)
         scene_reports.append({
             "scene_id": sid,
+            "scene_signature_hash": sig_hash,
             "renderer_id": scene.get("renderer_id", ""),
             "title": scene.get("title", ""),
             "visual_intent": scene.get("visual_intent", ""),
@@ -494,20 +558,28 @@ def run_visual_qa(
 
         acc_frame = end_f
 
-    sheet_name = "hero_shot_sheet.png" if mode in ("hero-shot", "first-shot") else "contact_sheet.png"
+    is_sample_mode = mode in ("hero-shot", "first-shot")
+    sheet_name = "first_shot_sheet.png" if is_sample_mode else "contact_sheet.png"
     sheet_path = output_dir / sheet_name
     sheet_ok = build_contact_sheet_image(
         contact_items,
         sheet_path,
         columns=3,
-        title=f"repo-to-video v4.1 {'Hero Shot Approval' if mode in ('hero-shot', 'first-shot') else 'Full Beat Contact Sheet'} ({props.get('repoName', '')})",
+        title=f"repo-to-video v4.2 {'First/Hero Shot Approval' if is_sample_mode else 'Full Beat Contact Sheet'} ({props.get('repoName', '')})",
     )
+    if is_sample_mode and sheet_ok:
+        alias_sheet = output_dir / "hero_shot_sheet.png"
+        if alias_sheet != sheet_path:
+            shutil.copy2(sheet_path, alias_sheet)
+
     if render_frames and not sheet_ok:
         render_failures.append(f"Contact Sheet 合成失败: {sheet_path}")
         all_issues.append(f"Render QA 失败: Contact Sheet 未成功生成 ({sheet_path})")
 
-    # Layer 4: Semantic QA
-    semantic_qa = generate_semantic_qa_artifacts(scenes, output_dir, sheet_path)
+    # Layer 4: Hash-Bound Semantic QA
+    semantic_qa = generate_semantic_qa_artifacts(
+        scenes, scene_signatures, output_dir, sheet_path
+    )
     all_issues.extend(semantic_qa["issues"])
 
     if render_failures:
@@ -520,7 +592,7 @@ def run_visual_qa(
         overall_status = "APPROVED"
 
     report = {
-        "version": "4.1",
+        "version": "4.2",
         "mode": mode,
         "repo_name": props.get("repoName", ""),
         "hero_scene_id": props.get("heroSceneId", ""),
@@ -545,7 +617,7 @@ def run_visual_qa(
     ws_report = props_path.parent / "visual_qa_report.json"
     ws_report.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"\n[✓] Visual QA v4.1 ({mode}) 执行完毕! 综合状态: {overall_status}")
+    print(f"\n[✓] Visual QA v4.2 ({mode}) 执行完毕! 综合状态: {overall_status}")
     print(f"    - 四层状态: {json.dumps(report['layers'], ensure_ascii=False)}")
     print(f"    - 审片报告: {report_path}")
     print(f"    - Semantic QA 审片单: {semantic_qa['review_markdown_path']}")
@@ -558,8 +630,8 @@ def run_visual_qa(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="repo-to-video v4.1 4-Layer Visual QA runner")
-    parser.add_argument("--props", required=True, help="Path to build_props.json or build_props.hero_shot.json")
+    parser = argparse.ArgumentParser(description="repo-to-video v4.2 4-Layer Visual QA runner")
+    parser.add_argument("--props", required=True, help="Path to build_props.json or build_props.first_shot.json")
     parser.add_argument("--output-dir", default="out/qa", help="Output directory for Contact Sheet & QA report")
     parser.add_argument("--mode", choices=["hero-shot", "first-shot", "full"], default="full", help="QA mode")
     parser.add_argument(
@@ -567,14 +639,26 @@ def main():
         action="store_true",
         help="Skip Remotion still rendering (run Schema QA & Semantic QA generation on existing frames)",
     )
+    parser.add_argument(
+        "--allow-pending-semantic",
+        action="store_true",
+        help="Allow exit code 0 when status is PENDING_SEMANTIC_QA_REVIEW (used only when generating initial checklist for Visual QA Agent)",
+    )
     args = parser.parse_args()
 
-    run_visual_qa(
+    report = run_visual_qa(
         props_path=Path(args.props),
         output_dir=Path(args.output_dir),
         mode=args.mode,
         render_frames=not args.no_render_frames,
     )
+
+    status = report.get("overall_status")
+    if status == "APPROVED":
+        return
+    if args.allow_pending_semantic and status == "PENDING_SEMANTIC_QA_REVIEW":
+        return
+    raise SystemExit(1)
 
 
 if __name__ == "__main__":

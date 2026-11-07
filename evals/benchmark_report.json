@@ -1,0 +1,82 @@
+{
+  "version": "4.2",
+  "overall_status": "PASS",
+  "benchmarks": [
+    {
+      "benchmark": "01_ai_info_filter.json",
+      "video_title": "Benchmark 01: AI 信息过滤与多面体结晶机制",
+      "renderer_ids": [
+        "particle_filter_v1"
+      ],
+      "scenes_count": 1,
+      "beats_count": 3,
+      "status": "PASS"
+    },
+    {
+      "benchmark": "02_software_architecture.json",
+      "video_title": "Benchmark 02: 多层软件架构空间拆解与合体",
+      "renderer_ids": [
+        "architecture_v1"
+      ],
+      "scenes_count": 1,
+      "beats_count": 3,
+      "status": "PASS"
+    },
+    {
+      "benchmark": "03_agent_skill_workflow.json",
+      "video_title": "Benchmark 03: Agent / Skill 多工具调度与融合工作流",
+      "renderer_ids": [
+        "dataflow_router_v1"
+      ],
+      "scenes_count": 1,
+      "beats_count": 3,
+      "status": "PASS"
+    },
+    {
+      "benchmark": "04_cli_tool_exec.json",
+      "video_title": "Benchmark 04: CLI 工具执行与真实代码视口联动",
+      "renderer_ids": [
+        "product_interface_v1"
+      ],
+      "scenes_count": 1,
+      "beats_count": 3,
+      "status": "PASS"
+    },
+    {
+      "benchmark": "05_api_call_lifecycle.json",
+      "video_title": "Benchmark 05: API 调用全生命周期与流式响应回传",
+      "renderer_ids": [
+        "dataflow_router_v1"
+      ],
+      "scenes_count": 1,
+      "beats_count": 3,
+      "status": "PASS"
+    }
+  ],
+  "negative_regressions": [
+    {
+      "test": "reject_unregistered_renderer_id",
+      "passed": true,
+      "details": [
+        "[neg_01] Schema QA: renderer_id='non_existent_renderer_v99' 未在 renderer-registry.json 中注册。"
+      ]
+    },
+    {
+      "test": "reject_missing_authentic_assets_in_product_interface",
+      "passed": true,
+      "details": [
+        "[neg_02] Schema QA: product_interface_v1 缺少真实的 visual_world.authentic_assets，禁止回退到伪造示例。"
+      ]
+    },
+    {
+      "test": "reject_out_of_order_phrase_anchors",
+      "passed": true
+    },
+    {
+      "test": "invalidate_semantic_qa_on_scene_content_change",
+      "passed": true,
+      "old_hash": "f30fe429627eda9292bc08b5",
+      "new_hash": "4d689ed81f4ceba5ef3844d5"
+    }
+  ]
+}

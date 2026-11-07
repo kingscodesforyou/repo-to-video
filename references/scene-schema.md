@@ -1,28 +1,33 @@
-# `storyboard.json` 可执行视觉编排 Schema（v4.1 · Executable Visual Choreography 版）
+# `storyboard.json` 可执行视觉编排 Schema（v4.2 · Executable Visual Choreography 版）
 
-在 `repo-to-video` v4.1 中，分镜 Schema 不仅是视觉导演的创意描述，更是直接受 **`build_video.py` 字段级白名单、`Renderer Registry` 能力校验门禁与 `tts_generator.py` 声学时间轴对齐** 约束的可执行契约。
+在 `repo-to-video` v4.2 中，分镜 Schema 是受 **根目录唯一数据源 [`renderer-registry.json`](../renderer-registry.json)、`build_video.py` 字段级白名单、结构化 `yielding` 校验门禁与 `tts_generator.py` 强制时间轴对齐** 约束的可执行契约。
 
 ---
 
-## 一、 v4.1 五条强制校验规则（Schema Gates）
+## 一、 v4.2 六条强制校验规则（Schema Gates）
 
 1. **字段级白名单检查（彻底阻断新旧结构混用）**：
    - 严禁在 `scene` 中出现任何旧版模板或卡片字段（`type`、`data`、`stack_items`、`cards`、`pain_points`、`magic_points`、`raw_inputs`、`distilled_outputs`、`teacher_note`）。即便同时写了 `visual_choreography`，只要出现上述任一旧字段，构建立即报错终止。
-2. **统一元素预算口径（`element_budget <= 4`）**：
+2. **显式 `renderer_id` 与唯一数据源 `renderer-registry.json` 校验**：
+   - 每个镜头必须显式声明 `renderer_id`（如 `"particle_filter_v1"`、`"architecture_v1"`、`"dataflow_router_v1"`、`"timeline_state_v1"`、`"product_interface_v1"`、`"kinetic_thesis_v1"`，同时兼容分类别名 `"PhysicalSimulation"` 等）。
+   - 严禁省略 `renderer_id` 依赖启发式猜测路由；`visual_world.primary_object`、`visual_world.environment`、`beat.action`、`beat.camera` 与 `beat.payload` 必须在 [`renderer-registry.json`](../renderer-registry.json) 中真实支持。
+3. **统一元素预算口径（`element_budget <= 4`）**：
    - 每个镜头同屏最多 **4 个主要视觉元素**：`1` 个 `primary_object` + 最多 `3` 个 `secondary_objects`（`len(secondary_objects) <= 3`）。
-   - **集合体计入规则**：粒子系统或网络集合（`information_particles`、`signal_particles`、`network_nodes`、`data_packets`）内部的多个粒子实例作为单一集合体（`collective_group`）计为 **1 个整体元素**。
+   - **集合体计入规则**：粒子系统或网络集合（`information_particles`、`signal_particles`、`network_nodes`、`request_packets`）内部的多个粒子实例作为单一集合体（`collective_group`）计为 **1 个整体元素**。
    - 画面文字批注 `text_overlays` 每个镜头最多 **2 条**。
-3. **`Renderer Registry` 能力绑定校验**：
-   - 每个镜头的 `renderer_id`（或 `primary_object` + `action` 组合）、`visual_world.environment`、`beat.camera` 与 `beat.payload` 参数名，必须在 [`templates/src/registry/registry_manifest.json`](../templates/src/registry/registry_manifest.json) 中真实注册。未知能力严禁静默退化到默认模板。
-4. **`phrase_anchor` 严格顺序匹配（废除静默比例回退）**：
-   - 每个 `visual_choreography` 节拍必须提供 `phrase_anchor`，且必须是 `narration` 原文中的真实子串；
-   - 不允许两个节拍重复匹配同一位置；
-   - 节拍锚点在口播中的出现顺序必须严格单调递增。
-5. **所有视觉指令字段真实执行，杜绝把 `description` 当作底部卡片渲染**：
-   - `beat.description` 仅用于导演备注、Motion Designer 参考与 Semantic QA 核对，**默认绝不渲染上屏**；
-   - `visual_world.environment` 真实驱动空间透视焦距、地平线反射、网格与三维坐标参考面；
-   - `beat.yielding` 真实驱动非焦点物体的不透明度（`opacity`）、景深模糊（`blur`）与 Z 轴后退；
-   - `beat.payload` 真实驱动组件物理参数。
+4. **结构化镜头让位（Structured `yielding` Array）**：
+   - 多节拍镜头的每个 `beat` 必须声明 `yielding`。推荐使用 v4.2 结构化数组格式，精确控制每个非焦点物体及背景网格（`background_grid`）的 `opacity`、`scale`、`zOffset` 与 `blur`：
+     ```json
+     "yielding": [
+       { "target": "3d_filter_machine", "opacity": 0.25, "scale": 0.9, "zOffset": -60, "blur": 3.0 },
+       { "target": "background_grid", "opacity": 0.15 }
+     ]
+     ```
+5. **真实代码资产门禁（Authentic Assets Gate）**：
+   - 凡使用 `product_interface_v1`（或 `ProductInterface`）的镜头，必须在 `visual_world.authentic_assets` 中提供仓库真实的 `code_snippet` 或 `terminal_commands`，严禁使用兜底伪代码冒充 `AUTHENTIC SOURCE`。
+6. **`phrase_anchor` 严格顺序匹配与关闭上屏 `description`**：
+   - 每个 `visual_choreography` 节拍必须提供 `narration` 原文中的真实子串 `phrase_anchor`，严禁重复匹配同一位置，且出现顺序必须严格单调递增。
+   - `beat.description` 仅用于导演备注与 QA 审片参考，**正式成片完全关闭 `description` 展示**（仅 `debugMode: true` 时显示调试信息）。
 
 ---
 
@@ -30,7 +35,7 @@
 
 ```jsonc
 {
-  "schema_version": "4.1",
+  "schema_version": "4.2",
   "repo_name": "mem0",
   "repo_url": "https://github.com/mem0ai/mem0",
   "repo_type": "RUNNABLE", // RUNNABLE | SKILL
@@ -45,19 +50,19 @@
     "max_element_budget": 4
   },
   "scenes": [
-    /* SceneV4_1[] */
+    /* SceneV4_2[] */
   ]
 }
 ```
 
 ---
 
-## 三、 单镜头完整示例 (`SceneV4_1`)
+## 三、 单镜头完整示例 (`SceneV4_2`)
 
 ```json
 {
   "id": "scene_01",
-  "renderer_id": "PhysicalSimulation",
+  "renderer_id": "particle_filter_v1",
   "chapter": "信息过滤与提纯",
   "title": "信息过滤与提纯机制",
   "continuity_group": "memory_pipeline_lab",
@@ -95,11 +100,10 @@
       "description": "大量信息实体沿空间曲线进入过滤装置",
       "camera": "slow_dolly_in",
       "shot_scale": "wide",
-      "yielding": {
-        "dim_opacity": 0.35,
-        "blur_px": 2.0,
-        "push_back_z": -40
-      },
+      "yielding": [
+        { "target": "waste_container", "opacity": 0.28, "scale": 0.92, "zOffset": -40, "blur": 1.5 },
+        { "target": "purified_object", "opacity": 0.32, "scale": 0.94, "zOffset": -36, "blur": 1.5 }
+      ],
       "payload": {
         "particle_count": 10,
         "valid_ratio": 0.5,
@@ -114,7 +118,10 @@
       "description": "三维涡轮环高速旋转，无效信息受重力向下分流至回收仓，有效信息继续前进",
       "camera": "track_horizontal",
       "shot_scale": "medium",
-      "yielding": "purified_object 保持退后待机状态",
+      "yielding": [
+        { "target": "information_particles", "opacity": 0.35, "scale": 0.94, "zOffset": -30, "blur": 1.0 },
+        { "target": "purified_object", "opacity": 0.4, "scale": 0.95, "zOffset": -24, "blur": 1.0 }
+      ],
       "payload": {
         "gravity": 1.25
       }
@@ -127,7 +134,11 @@
       "description": "有效信息在右侧由离散碎片凝聚结晶为一个完整的三维二十面体晶体",
       "camera": "close_up",
       "shot_scale": "close_up",
-      "yielding": "3d_filter_machine 与 waste_container 虚化退入浅景深背景 (25%)",
+      "yielding": [
+        { "target": "3d_filter_machine", "opacity": 0.25, "scale": 0.9, "zOffset": -60, "blur": 3.0 },
+        { "target": "waste_container", "opacity": 0.2, "scale": 0.88, "zOffset": -60, "blur": 3.5 },
+        { "target": "background_grid", "opacity": 0.15 }
+      ],
       "payload": {
         "crystal_facets": 20
       }
@@ -145,15 +156,6 @@
 
 ---
 
-## 四、 字段白名单与注册表映射速查
+## 四、 时间轴对齐字段规范（双命名兼容）
 
-- **受支持的 `renderer_id` 及对应 `action` / `primary_object` / `payloadSchema`**：详见 [`references/visual-component-library.md`](./visual-component-library.md) 与 [`templates/src/registry/registry_manifest.json`](../templates/src/registry/registry_manifest.json)。
-- **受支持的 `visual_world.environment`**：
-  - `"minimal_physical_laboratory"`（极简物理实验室：64px 标尺网格 + 地平线基准 + 1800px 透视）
-  - `"dark_architectural_stage"`（深色建筑级空间舞台：80px 柱网 + 轮廓光 + 1600px 透视）
-  - `"editorial_drafting_table"`（浅色理性制图桌面：暖白底色 + 四周工程准星标尺 + 2000px 透视）
-  - `"editorial_canvas"`（浅色大留白编辑画布）
-  - `"authentic_developer_workspace"`（真实代码与终端演播室）
-  - `"spatial_network_void"`（三维 X/Y/Z 坐标参考网络空间）
-- **受支持的 `beat.camera`**：
-  - `"slow_dolly_in"`、`"dolly_out"`、`"close_up"`、`"macro_focus"`、`"track_horizontal"`、`"track_vertical"`、`"orbit_left"`、`"orbit_right"`、`"isometric_tilt"`、`"top_down_overview"`、`"steady_hold"`。
+`tts_generator.py` 与 `build_video.py` 输出的 `phrase_timings`、`word_timings`、`beat_timings` 同时提供 `start_frame` / `end_frame` 与 `startFrame` / `endFrame`，确保 Python 校验脚本、Motion Designer 与 Remotion TypeScript 组件完全一致。
